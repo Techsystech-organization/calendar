@@ -9,7 +9,7 @@ Key features:
 
 - Public booking page at `/book/<slug>` for each published booking type
 - Monthly calendar showing available time slots based on resource availability
-- Server-rendered slot data — no extra AJAX calls needed
+- Server-rendered slot data -- no extra AJAX calls needed
 - Automatic partner creation or reuse based on visitor email
 - Calendar invitation sent to both parties upon confirmation
 - Race condition handling when two visitors try to book the same slot
