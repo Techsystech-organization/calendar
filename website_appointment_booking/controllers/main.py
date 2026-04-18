@@ -3,11 +3,14 @@
 
 import json
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 
+import pytz
 from dateutil.parser import isoparse
 from werkzeug.exceptions import NotFound
 
 from odoo import http
+from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import ValidationError
 from odoo.http import request
 
@@ -24,7 +27,84 @@ class WebsiteAppointmentBooking(http.Controller):
             )
         )
 
-    def _create_phantom_booking(self, booking_type):
+    def _get_timezone_options(self):
+        """Return timezone options using the standard partner helper."""
+        return _tz_get(request.env["res.partner"])
+
+    def _get_selected_tz(self, booking_type, tz_name=None):
+        """Return a validated timezone for public slot rendering."""
+        available_tzs = {name for name, _label in self._get_timezone_options()}
+        default_tz = booking_type.resource_calendar_id.tz or "UTC"
+        if tz_name in available_tzs:
+            return tz_name
+        cookie_tz = request.httprequest.cookies.get("tz")
+        if cookie_tz in available_tzs:
+            return cookie_tz
+        return default_tz
+
+    def _get_combination_options(self, booking_type):
+        """Return ordered combination options for public resource selection."""
+        return [
+            {
+                "id": rel.combination_id.id,
+                "name": rel.combination_id.name,
+            }
+            for rel in booking_type.combination_rel_ids.sorted("sequence")
+        ]
+
+    def _get_selected_combination(self, booking_type, combination_id=None):
+        """Return a validated booking combination for the public flow."""
+        if not combination_id:
+            return request.env["resource.booking.combination"]
+        try:
+            combination_id = int(combination_id)
+        except (TypeError, ValueError):
+            return request.env["resource.booking.combination"]
+        return booking_type.combination_rel_ids.filtered(
+            lambda rel: rel.combination_id.id == combination_id
+        ).combination_id[:1]
+
+    def _build_selection_query(self, selected_tz, selected_combination=None, **extra):
+        """Build a query string preserving timezone/resource selection."""
+        params = {}
+        if selected_tz:
+            params["tz"] = selected_tz
+        if selected_combination:
+            params["combination_id"] = selected_combination.id
+        params.update({key: value for key, value in extra.items() if value})
+        return f"?{urlencode(params)}" if params else ""
+
+    def _get_slot_payload(
+        self, booking_type, year=None, month=None, tz_name=None, combination_id=None
+    ):
+        """Return reusable slot payload data for page and AJAX refreshes."""
+        selected_tz = self._get_selected_tz(booking_type, tz_name)
+        selected_combination = self._get_selected_combination(
+            booking_type, combination_id
+        )
+        phantom = self._create_phantom_booking(
+            booking_type, tz=selected_tz, combination=selected_combination
+        )
+        calendar_ctx = phantom._get_calendar_context(year, month)
+        lang = calendar_ctx["res_lang"]
+        time_format = lang.time_format.replace(":%S", "")
+        slot_data = self._serialize_slots(
+            calendar_ctx["slots"], time_format, selected_tz
+        )
+        return {
+            "calendar_ctx": calendar_ctx,
+            "selected_tz": selected_tz,
+            "selected_combination": selected_combination,
+            "selected_combination_id": selected_combination.id or False,
+            "slot_data": slot_data,
+            "slot_data_json": json.dumps(slot_data),
+            "selection_query": self._build_selection_query(
+                selected_tz, selected_combination
+            ),
+            "available_dates": [day.isoformat() for day in calendar_ctx["slots"]],
+        }
+
+    def _create_phantom_booking(self, booking_type, tz=None, combination=None):
         """Create an in-memory booking for slot computation.
 
         Uses ``new()`` to avoid writing to the database. The phantom booking
@@ -32,31 +112,41 @@ class WebsiteAppointmentBooking(http.Controller):
         considers all resource combinations.
         """
         Booking = request.env["resource.booking"].sudo()
-        tz = booking_type.resource_calendar_id.tz or "UTC"
-        return Booking.with_context(tz=tz).new(
-            {
-                "type_id": booking_type.id,
-                "duration": booking_type.duration,
-                "combination_auto_assign": True,
-            }
-        )
+        tz = tz or booking_type.resource_calendar_id.tz or "UTC"
+        values = {
+            "type_id": booking_type.id,
+            "duration": booking_type.duration,
+            "combination_auto_assign": not bool(combination),
+        }
+        if combination:
+            values["combination_id"] = combination.id
+        return Booking.with_context(tz=tz).new(values)
 
-    def _serialize_slots(self, slots, time_format):
+    def _serialize_slots(self, slots, time_format, tz_name):
         """Serialize slot data to a JSON-safe list of dicts.
 
         Each dict contains ``date``, ``time`` (display string) and ``iso``
         (full ISO 8601 value used for form submission).
         """
-        result = []
-        for day, times in sorted(slots.items()):
+        display_tz = pytz.timezone(tz_name or "UTC")
+        localized_slots = []
+        for _day, times in sorted(slots.items()):
             for slot_dt in times:
-                result.append(
-                    {
-                        "date": day.isoformat(),
-                        "time": slot_dt.strftime(time_format),
-                        "iso": slot_dt.isoformat(),
-                    }
-                )
+                if slot_dt.tzinfo:
+                    localized_slots.append(slot_dt.astimezone(display_tz))
+                else:
+                    localized_slots.append(
+                        pytz.UTC.localize(slot_dt).astimezone(display_tz)
+                    )
+        result = []
+        for slot_dt in sorted(localized_slots):
+            result.append(
+                {
+                    "date": slot_dt.date().isoformat(),
+                    "time": slot_dt.strftime(time_format),
+                    "iso": slot_dt.isoformat(),
+                }
+            )
         return result
 
     @http.route(
@@ -74,19 +164,59 @@ class WebsiteAppointmentBooking(http.Controller):
         booking_type = self._get_booking_type(slug)
         if not booking_type:
             raise NotFound()
-        phantom = self._create_phantom_booking(booking_type)
-        calendar_ctx = phantom._get_calendar_context(year, month)
-        lang = calendar_ctx["res_lang"]
-        time_format = lang.time_format.replace(":%S", "")
-        slot_data = self._serialize_slots(calendar_ctx["slots"], time_format)
+        slot_payload = self._get_slot_payload(
+            booking_type,
+            year,
+            month,
+            kwargs.get("tz"),
+            kwargs.get("combination_id"),
+        )
         values = {
             "booking_type": booking_type,
-            "slot_data": slot_data,
-            "slot_data_json": json.dumps(slot_data),
+            "combination_options": self._get_combination_options(booking_type),
+            "slot_data": slot_payload["slot_data"],
+            "slot_data_json": slot_payload["slot_data_json"],
+            "selected_tz": slot_payload["selected_tz"],
+            "selected_combination_id": slot_payload["selected_combination_id"],
+            "timezone_options": self._get_timezone_options(),
+            "selection_query": slot_payload["selection_query"],
             "error": error,
         }
-        values.update(calendar_ctx)
+        values.update(slot_payload["calendar_ctx"])
         return request.render("website_appointment_booking.booking_page", values)
+
+    @http.route(
+        "/book/<slug>/slots",
+        auth="public",
+        type="http",
+        website=True,
+        methods=["GET"],
+    )
+    def booking_slots(self, slug, year=None, month=None, **kwargs):
+        """Return slot data for the selected month/timezone as JSON."""
+        booking_type = self._get_booking_type(slug)
+        if not booking_type:
+            raise NotFound()
+        year = year or kwargs.get("year")
+        month = month or kwargs.get("month")
+        year = int(year) if year else None
+        month = int(month) if month else None
+        slot_payload = self._get_slot_payload(
+            booking_type,
+            year,
+            month,
+            kwargs.get("tz"),
+            kwargs.get("combination_id"),
+        )
+        return request.make_json_response(
+            {
+                "selected_tz": slot_payload["selected_tz"],
+                "selected_combination_id": slot_payload["selected_combination_id"],
+                "selection_query": slot_payload["selection_query"],
+                "slot_data": slot_payload["slot_data"],
+                "available_dates": slot_payload["available_dates"],
+            }
+        )
 
     @http.route(
         "/book/<slug>/confirm",
@@ -99,23 +229,33 @@ class WebsiteAppointmentBooking(http.Controller):
     def booking_confirm(self, slug, **kwargs):
         """Process a booking confirmation.
 
-        Expects POST parameters ``name``, ``email`` and ``when`` (ISO 8601).
+        Expects POST parameters ``name``, ``email``, ``phone`` and ``when``
+        (ISO 8601).
         Creates or finds the partner, creates the booking, assigns the slot
         and confirms.
         """
         booking_type = self._get_booking_type(slug)
         if not booking_type:
             raise NotFound()
+        selected_tz = self._get_selected_tz(booking_type, kwargs.get("tz"))
+        selected_combination = self._get_selected_combination(
+            booking_type, kwargs.get("combination_id")
+        )
         name = (kwargs.get("name") or "").strip()
         email = (kwargs.get("email") or "").strip()
+        phone = (kwargs.get("phone") or "").strip()
         when_str = kwargs.get("when", "")
-        if not name or not email or not when_str:
-            return request.redirect(f"/book/{slug}?error=Please+fill+in+all+fields.")
+        if not name or not email or not phone or not when_str:
+            return request.redirect(
+                f"/book/{slug}{self._build_selection_query(selected_tz, selected_combination, error='Please fill in all fields.')}"
+            )
         # Parse the submitted datetime
         try:
             when_tz_aware = isoparse(when_str)
         except (ValueError, TypeError):
-            return request.redirect(f"/book/{slug}?error=Invalid+date+selected.")
+            return request.redirect(
+                f"/book/{slug}{self._build_selection_query(selected_tz, selected_combination, error='Invalid date selected.')}"
+            )
         when_naive = datetime.fromtimestamp(
             when_tz_aware.timestamp(), tz=timezone.utc
         ).replace(tzinfo=None)
@@ -123,9 +263,15 @@ class WebsiteAppointmentBooking(http.Controller):
         Partner = request.env["res.partner"].sudo()
         partner = Partner.search([("email", "=ilike", email)], limit=1)
         if not partner:
-            partner = Partner.create({"name": name, "email": email})
-        elif not partner.name or partner.name == email:
-            partner.name = name
+            partner = Partner.create({"name": name, "email": email, "phone": phone})
+        else:
+            partner_vals = {}
+            if not partner.name or partner.name == email:
+                partner_vals["name"] = name
+            if phone and not partner.phone:
+                partner_vals["phone"] = phone
+            if partner_vals:
+                partner.write(partner_vals)
         # Create and schedule the booking inside a savepoint so that
         # a ValidationError (race condition: slot already taken) can be
         # caught without poisoning the database cursor.
@@ -141,7 +287,8 @@ class WebsiteAppointmentBooking(http.Controller):
                     {
                         "type_id": booking_type.id,
                         "partner_ids": [(4, partner.id)],
-                        "combination_auto_assign": True,
+                        "combination_auto_assign": not bool(selected_combination),
+                        "combination_id": selected_combination.id or False,
                     }
                 )
                 booking.start = when_naive
@@ -151,7 +298,7 @@ class WebsiteAppointmentBooking(http.Controller):
             month_str = f"{when_tz_aware:%Y/%m}"
             return request.redirect(
                 f"/book/{slug}/{month_str}"
-                "?error=That+slot+is+no+longer+available.+Please+choose+another."
+                f"{self._build_selection_query(selected_tz, selected_combination, error='That slot is no longer available. Please choose another.')}"
             )
         # Store booking info in session for the success page
         request.session["last_booking"] = {

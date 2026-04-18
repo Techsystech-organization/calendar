@@ -80,8 +80,8 @@
                                             No available slots this month.
                                         </p>
                                         <a
-                                            t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}"
-                                            class="btn btn-outline-primary btn-sm"
+                                            t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}#{selection_query}"
+                                            class="btn btn-outline-primary btn-sm o_wab_month_link"
                                         >
                                             Try next month
                                             <i class="fa fa-arrow-right ms-1" />
@@ -94,14 +94,43 @@
                                     <div class="o_wab_cal_grid">
                                         <!-- Left: Calendar -->
                                         <div>
+                                            <t t-if="len(combination_options) &gt; 1">
+                                                <div class="o_wab_combination mb-3 text-center">
+                                                    <div class="text-muted small mb-2">with</div>
+                                                    <div
+                                                        class="d-flex flex-wrap justify-content-center gap-2"
+                                                        role="group"
+                                                        aria-label="With"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            t-attf-class="btn btn-outline-secondary btn-sm o_wab_combination_btn#{'' if selected_combination_id else ' active'}"
+                                                            data-combination-id=""
+                                                            t-att-aria-pressed="'false' if selected_combination_id else 'true'"
+                                                        >No preference</button>
+                                                        <t
+                                                            t-foreach="combination_options"
+                                                            t-as="combination_option"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                t-attf-class="btn btn-outline-secondary btn-sm o_wab_combination_btn#{' active' if combination_option['id'] == selected_combination_id else ''}"
+                                                                t-att-data-combination-id="combination_option['id']"
+                                                                t-att-aria-pressed="'true' if combination_option['id'] == selected_combination_id else 'false'"
+                                                            ><t t-out="combination_option['name']" /></button>
+                                                        </t>
+                                                    </div>
+                                                </div>
+                                            </t>
+
                                             <!-- Month navigation -->
                                             <div
                                                 class="o_wab_month_nav d-flex justify-content-between align-items-center mb-3"
                                             >
                                                 <t t-if="start > now">
                                                     <a
-                                                        t-attf-href="/book/#{booking_type.website_slug}/#{start_previous.year}/#{start_previous.month}"
-                                                        class="o_wab_nav_btn"
+                                                        t-attf-href="/book/#{booking_type.website_slug}/#{start_previous.year}/#{start_previous.month}#{selection_query}"
+                                                        class="o_wab_nav_btn o_wab_month_link"
                                                         aria-label="Previous month"
                                                     >
                                                         <i class="fa fa-chevron-left" />
@@ -113,8 +142,8 @@
                                                     t-out="start.strftime('%B %Y')"
                                                 />
                                                 <a
-                                                    t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}"
-                                                    class="o_wab_nav_btn"
+                                                    t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}#{selection_query}"
+                                                    class="o_wab_nav_btn o_wab_month_link"
                                                     aria-label="Next month"
                                                 >
                                                     <i class="fa fa-chevron-right" />
@@ -155,7 +184,7 @@
                                                                 <td>
                                                                     <div
                                                                         t-att-class="'o_wab_day' + (' o_wab_day_available' if has_slots else '') + (' text-muted' if day.month != start.month else '')"
-                                                                        t-att-data-date="day.isoformat() if has_slots else None"
+                                                                        t-att-data-date="day.isoformat() if day.month == start.month else None"
                                                                     >
                                                                         <t
                                                                             t-out="day.day"
@@ -167,15 +196,35 @@
                                                     </t>
                                                 </tbody>
                                             </table>
-
-                                            <!-- Timezone note -->
-                                            <p
-                                                class="o_wab_tz_note text-center mt-1 mb-0"
+                                            <div
+                                                class="o_wab_timezone mt-3 d-flex flex-wrap align-items-center justify-content-center gap-2"
                                             >
-                                                Times in
-                                                <span
-                                                t-field="booking_type.resource_calendar_id.tz"
-                                            />
+                                                <label
+                                                    for="o_wab_timezone"
+                                                    class="text-muted small mb-0"
+                                                >Timezone:</label>
+                                                <select
+                                                    id="o_wab_timezone"
+                                                    class="form-select form-select-sm o_wab_timezone_select w-auto"
+                                                    aria-label="Timezone"
+                                                >
+                                                    <t
+                                                        t-foreach="timezone_options"
+                                                        t-as="timezone_option"
+                                                    >
+                                                        <option
+                                                            t-att-value="timezone_option[0]"
+                                                            t-att-selected="timezone_option[0] == selected_tz and 'selected' or None"
+                                                        >
+                                                            <t t-out="timezone_option[1]" />
+                                                        </option>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                            <p
+                                                class="o_wab_tz_note text-center mt-3 mb-0"
+                                            >
+                                                Displayed times update for the selected timezone.
                                             </p>
                                         </div>
 
@@ -204,7 +253,12 @@
                                     <div
                                         class="d-none"
                                         id="o_wab_slot_data"
+                                        t-att-data-slot-endpoint="'/book/%s/slots' % booking_type.website_slug"
+                                        t-att-data-year="start.year"
+                                        t-att-data-month="start.month"
                                         t-att-data-slots="slot_data_json"
+                                        t-att-data-selected-tz="selected_tz"
+                                        t-att-data-selected-combination-id="selected_combination_id or ''"
                                     />
                                 </t>
 
@@ -227,6 +281,16 @@
                                             name="when"
                                             id="o_wab_when"
                                         />
+                                        <input
+                                            type="hidden"
+                                            name="tz"
+                                            t-att-value="selected_tz"
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="combination_id"
+                                            t-att-value="selected_combination_id or ''"
+                                        />
                                         <div class="mb-3">
                                             <span class="o_wab_selected_slot">
                                                 <i class="fa fa-calendar-check-o" />
@@ -234,7 +298,7 @@
                                             </span>
                                         </div>
                                         <div class="row g-3 mb-3">
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label
                                                     for="o_wab_name"
                                                     class="form-label"
@@ -248,7 +312,7 @@
                                                     placeholder="Your full name"
                                                 />
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label
                                                     for="o_wab_email"
                                                     class="form-label"
@@ -260,6 +324,20 @@
                                                     name="email"
                                                     required="required"
                                                     placeholder="you@example.com"
+                                                />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label
+                                                    for="o_wab_phone"
+                                                    class="form-label"
+                                                >Phone</label>
+                                                <input
+                                                    type="tel"
+                                                    class="form-control"
+                                                    id="o_wab_phone"
+                                                    name="phone"
+                                                    required="required"
+                                                    placeholder="(555) 123-4567"
                                                 />
                                             </div>
                                         </div>
