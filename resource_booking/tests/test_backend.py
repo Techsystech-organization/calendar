@@ -507,6 +507,30 @@ class BackendCaseMisc(BackendCaseBase):
         rb_f.start = datetime(2021, 3, 1, 9)
         self.assertTrue(rb_f.combination_id)
 
+    def test_allday_event_blocks_whole_day(self):
+        """All-day events block the whole local day on 24h calendars."""
+        self.rbt.resource_calendar_id = self.r_calendars[3]
+        self.env["calendar.event"].create(
+            {
+                "name": "all day saturday",
+                "start": datetime(2021, 2, 27, 0),
+                "start_date": date(2021, 2, 27),
+                "stop": datetime(2021, 2, 27, 0),
+                "stop_date": date(2021, 2, 27),
+                "allday": True,
+                "partner_ids": [Command.set(self.users.partner_id.ids)],
+            }
+        )
+        rb_f = Form(self.env["resource.booking"])
+        rb_f.partner_ids.add(self.partner)
+        rb_f.type_id = self.rbt
+        rb_f.start = datetime(2021, 2, 27, 1)
+        self.assertFalse(rb_f.combination_id)
+        rb_f.start = datetime(2021, 2, 27, 19)
+        self.assertFalse(rb_f.combination_id)
+        rb_f.start = datetime(2021, 2, 28, 1)
+        self.assertTrue(rb_f.combination_id)
+
     @mute_logger("odoo.models.unlink")
     def test_change_calendar_after_bookings_exist(self):
         """Calendar changes can be done only if they introduce no conflicts."""
