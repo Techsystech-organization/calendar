@@ -1,6 +1,8 @@
 # Copyright 2025 Ledo Enterprises LLC - Don Kendall
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import base64
+
 from psycopg2 import IntegrityError
 
 from odoo.tests import tagged
@@ -59,3 +61,22 @@ class TestResourceBookingTypeWebsite(TransactionCase):
         self.rbt.name = "Meeting (30 min) & Coffee!"
         self.rbt._compute_website_slug()
         self.assertEqual(self.rbt.website_slug, "meeting-30-min-coffee")
+
+    def test_unpublishing_does_not_clear_website_slug(self):
+        """Published flag controls visibility without mutating existing slug."""
+        self.rbt.write({"website_published": True, "website_slug": "keep-me"})
+        self.rbt.website_published = False
+        self.assertEqual(self.rbt.website_slug, "keep-me")
+
+    def test_card_display_fields_can_be_configured(self):
+        """Booking types store card image plus selected user/resource avatars."""
+        self.rbt.write(
+            {
+                "website_card_image": base64.b64encode(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC")),
+                "website_card_user_ids": [(6, 0, self.users[:1].ids)],
+                "website_card_resource_ids": [(6, 0, self.r_users[:1].ids)],
+            }
+        )
+        self.assertTrue(self.rbt.website_card_image)
+        self.assertEqual(self.rbt.website_card_user_ids, self.users[:1])
+        self.assertEqual(self.rbt.website_card_resource_ids, self.r_users[:1])

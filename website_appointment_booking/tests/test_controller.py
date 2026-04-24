@@ -1,6 +1,7 @@
 # Copyright 2025 Ledo Enterprises LLC - Don Kendall
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import base64
 import json
 from datetime import datetime
 
@@ -24,6 +25,10 @@ class TestWebsiteAppointmentBooking(HttpCase):
             {
                 "website_published": True,
                 "website_slug": "test-booking",
+                "website_card_image": base64.b64encode(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC")),
+                "website_card_user_ids": [(6, 0, cls.users[:1].ids)],
+                "website_card_resource_ids": [(6, 0, cls.r_users[:1].ids)],
+                "location": "Main office",
             }
         )
 
@@ -45,6 +50,31 @@ class TestWebsiteAppointmentBooking(HttpCase):
             self.opener.cookies["tz"] = timezone_name
         elif "tz" in self.opener.cookies:
             del self.opener.cookies["tz"]
+
+    def test_landing_page_lists_published_booking_cards(self):
+        """/book lists published booking types as cards with image, link and avatars."""
+        page = self._url_xml("/book")
+        cards = page.cssselect(".o_wab_booking_card")
+        self.assertTrue(cards)
+        test_cards = [
+            card
+            for card in cards
+            if card.cssselect('a[href="/book/test-booking"]:contains("Book now")')
+        ]
+        self.assertEqual(len(test_cards), 1)
+        card = test_cards[0]
+        self.assertTrue(card.cssselect(":contains('Test resource booking type')"))
+        self.assertTrue(card.cssselect('img[src*="/web/image/resource.booking.type/"]'))
+        self.assertTrue(card.cssselect('img[src*="/web/image/res.users/"]'))
+        self.assertTrue(card.cssselect('img[src*="/web/image/resource.resource/"]'))
+        self.assertIn("col-lg-3", card.getparent().get("class", ""))
+        self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('30 min')"))
+        self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('Main office')"))
+
+    def test_landing_page_excludes_unpublished_slug(self):
+        """Published flag controls /book card visibility without deleting slug data."""
+        page = self._url_xml("/book")
+        self.assertFalse(page.cssselect('a[href="/book/unpublished-type"]'))
 
     def test_unpublished_returns_404(self):
         """Unpublished booking types are not accessible.
@@ -167,17 +197,18 @@ class TestWebsiteAppointmentBooking(HttpCase):
         self.assertIn("tz=US%2FPacific", next_links[0].get("href"))
 
     def test_booking_page_renders_resource_selector(self):
-        """Booking page shows no-preference plus ordered resource options."""
+        """Booking page shows no-preference plus ordered resource buttons."""
         page = self._url_xml("/book/test-booking/2021/3")
-        selector = page.cssselect("#o_wab_combination")
-        self.assertTrue(selector)
-        options = selector[0].cssselect("option")
-        self.assertEqual(options[0].get("value"), "")
-        self.assertEqual(options[0].text_content().strip(), "No preference")
-        self.assertEqual(options[1].get("value"), str(self.rbcs[0].id))
-        self.assertEqual(options[1].text_content().strip(), self.rbcs[0].name)
-        self.assertEqual(options[2].get("value"), str(self.rbcs[1].id))
-        self.assertEqual(options[2].text_content().strip(), self.rbcs[1].name)
+        buttons = page.cssselect(".o_wab_combination_btn")
+        expected_options = [("", "No preference")] + [
+            (str(rel.combination_id.id), rel.combination_id.name)
+            for rel in self.rbt.combination_rel_ids.sorted("sequence")
+        ]
+        self.assertEqual(len(buttons), len(expected_options))
+        for button, (expected_id, expected_name) in zip(buttons, expected_options, strict=True):
+            self.assertEqual(button.get("data-combination-id"), expected_id)
+            self.assertEqual(button.text_content().strip(), expected_name)
+        self.assertIn("active", buttons[0].get("class", ""))
 
     def test_booking_page_slots_endpoint_filters_selected_resource(self):
         """Selected resource combination should only expose its own slot dates."""
@@ -249,6 +280,33 @@ class TestWebsiteAppointmentBooking(HttpCase):
         self.assertTrue(partner)
         self.assertEqual(partner.name, "Test Visitor")
         self.assertEqual(partner.phone, "+1 555-0101")
+
+    def test_confirm_saves_discussion_note_on_booking(self):
+        """Submitted discussion text should be stored on the booking description."""
+        page = self._url_xml("/book/test-booking/2021/3")
+        csrf = self._get_csrf_token(page)
+        data = {
+            "csrf_token": csrf,
+            "name": "Discussion Visitor",
+            "email": "discussion@example.com",
+            "phone": "+1 555-0106",
+            "discussion": "Talk about payroll automation\nand calendar reminders.",
+            "when": "2021-03-01T10:00:00+00:00",
+        }
+        response = self.url_open("/book/test-booking/confirm", data=data, timeout=30)
+        self.assertIn("/book/test-booking/success", response.url)
+        booking = self.env["resource.booking"].search(
+            [
+                ("type_id", "=", self.rbt.id),
+                ("partner_ids.email", "=", "discussion@example.com"),
+            ],
+            limit=1,
+        )
+        self.assertTrue(booking)
+        self.assertEqual(
+            booking.description,
+            "<p>Talk about payroll automation<br>and calendar reminders.</p>",
+        )
 
     def test_confirm_missing_phone(self):
         """Submitting without a phone redirects with error."""
