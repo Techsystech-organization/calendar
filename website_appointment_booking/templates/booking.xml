@@ -166,16 +166,16 @@
                                 <!-- No slots this month -->
                                 <t t-if="not slots">
                                     <div class="o_wab_empty_month">
-                                        <i class="fa fa-calendar-o d-block" />
+                                        <i class="fa fa-calendar-o d-block o_wab_empty_month_icon" />
                                         <p class="mb-2">
                                             No available slots this month.
                                         </p>
                                         <a
                                             t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}#{selection_query}"
-                                            class="btn btn-outline-primary btn-sm o_wab_month_link"
+                                            class="btn btn-outline-primary d-inline-flex align-items-center gap-2 o_wab_month_link o_wab_next_month_btn"
                                         >
-                                            Try next month
-                                            <i class="fa fa-arrow-right ms-1" />
+                                            <span>Try next month</span>
+                                            <i class="fa fa-arrow-right" aria-hidden="true" />
                                         </a>
                                     </div>
                                 </t>

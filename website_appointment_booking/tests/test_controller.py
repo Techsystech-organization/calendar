@@ -107,6 +107,15 @@ class TestWebsiteAppointmentBooking(HttpCase):
         self.assertTrue(
             page.cssselect(".o_wab_empty_month:contains('No available slots')")
         )
+        self.assertTrue(
+            page.cssselect(".o_wab_next_month_btn:contains('Try next month')")
+        )
+        self.assertTrue(
+            page.cssselect(
+                ".o_wab_next_month_btn.d-inline-flex.align-items-center.gap-2 "
+                ".fa-arrow-right[aria-hidden='true']"
+            )
+        )
 
     def test_booking_page_march_has_slots(self):
         """March 2021 should have available slots on Mondays and Tuesdays."""

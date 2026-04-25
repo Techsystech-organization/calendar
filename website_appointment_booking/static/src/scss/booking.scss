@@ -367,10 +367,19 @@ $wab-radius-sm: 0.5rem;
     padding: 2.5rem 1.5rem;
     text-align: center;
 
-    i {
+    .o_wab_empty_month_icon {
         font-size: 2.5rem;
         color: var(--o-gray-300, #dee2e6);
         margin-bottom: 1rem;
+    }
+
+    .o_wab_next_month_btn {
+        line-height: 1.5;
+
+        i {
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
     }
 
     p {
