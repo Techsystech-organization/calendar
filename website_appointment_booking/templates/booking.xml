@@ -2,6 +2,97 @@
 <!-- Copyright 2025 Ledo Enterprises LLC - Don Kendall
      License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
 <odoo>
+    <template id="booking_landing_page" name="Public Appointment Booking Landing Page">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container o_wab_page o_wab_landing py-5">
+                    <div class="row mb-4">
+                        <div class="col-lg-10 mx-auto text-center">
+                            <h1 class="display-6 fw-bold mb-2">Book an appointment</h1>
+                            <p class="text-muted mb-0">Choose the appointment type that works best for you.</p>
+                        </div>
+                    </div>
+                    <div t-if="booking_types" class="row g-4">
+                        <t t-foreach="booking_types" t-as="booking_type">
+                            <div class="col-md-6 col-lg-3">
+                                <article class="card h-100 o_wab_booking_card">
+                                    <img
+                                        t-if="booking_type.website_card_image"
+                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image' % booking_type.id"
+                                        t-att-alt="booking_type.name"
+                                        class="card-img-top o_wab_booking_card_img"
+                                    />
+                                    <div
+                                        t-else=""
+                                        class="o_wab_booking_card_placeholder card-img-top d-flex align-items-center justify-content-center"
+                                    >
+                                        <i class="fa fa-calendar-check-o" />
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <h2 class="h5 card-title mb-2" t-field="booking_type.name" />
+                                        <div
+                                            t-if="booking_type.website_description"
+                                            class="card-text text-muted small mb-3 o_wab_card_description"
+                                            t-field="booking_type.website_description"
+                                        />
+                                        <div class="o_wab_card_meta d-flex flex-column gap-1 mb-3">
+                                            <span class="o_wab_card_meta_item">
+                                                <i class="fa fa-clock-o" />
+                                                <t t-out="'%d min' % int(booking_type.duration * 60)" />
+                                            </span>
+                                            <span
+                                                t-if="booking_type.location"
+                                                class="o_wab_card_meta_item"
+                                            >
+                                                <i class="fa fa-map-marker" />
+                                                <t t-out="booking_type.location" />
+                                            </span>
+                                        </div>
+                                        <div
+                                            t-if="booking_type.website_card_user_ids or booking_type.website_card_resource_ids"
+                                            class="o_wab_card_avatars d-flex align-items-center mb-3"
+                                        >
+                                            <t t-foreach="booking_type.website_card_user_ids" t-as="avatar_user">
+                                                <img
+                                                    t-att-src="'/web/image/res.users/%s/avatar_128' % avatar_user.id"
+                                                    t-att-alt="avatar_user.name"
+                                                    t-att-title="avatar_user.name"
+                                                    class="o_wab_card_avatar rounded-circle"
+                                                />
+                                            </t>
+                                            <t t-foreach="booking_type.website_card_resource_ids" t-as="avatar_resource">
+                                                <img
+                                                    t-att-src="'/web/image/resource.resource/%s/avatar_128' % avatar_resource.id"
+                                                    t-att-alt="avatar_resource.name"
+                                                    t-att-title="avatar_resource.name"
+                                                    class="o_wab_card_avatar rounded-circle"
+                                                />
+                                            </t>
+                                        </div>
+                                        <div class="mt-auto">
+                                            <a
+                                                t-attf-href="/book/#{booking_type.website_slug}"
+                                                class="btn btn-primary"
+                                            >Book now</a>
+                                        </div>
+                                    </div>
+                                </article>
+                            </div>
+                        </t>
+                    </div>
+                    <div t-else="" class="row">
+                        <div class="col-lg-8 mx-auto">
+                            <div class="o_wab_empty_month">
+                                <i class="fa fa-calendar-o d-block" />
+                                <p class="mb-0">No booking types are currently available.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
     <template id="booking_page" name="Public Appointment Booking">
         <t t-call="website.layout">
             <div id="wrap">
@@ -75,16 +166,16 @@
                                 <!-- No slots this month -->
                                 <t t-if="not slots">
                                     <div class="o_wab_empty_month">
-                                        <i class="fa fa-calendar-o d-block" />
+                                        <i class="fa fa-calendar-o d-block o_wab_empty_month_icon" />
                                         <p class="mb-2">
                                             No available slots this month.
                                         </p>
                                         <a
                                             t-attf-href="/book/#{booking_type.website_slug}/#{start_next.year}/#{start_next.month}#{selection_query}"
-                                            class="btn btn-outline-primary btn-sm o_wab_month_link"
+                                            class="btn btn-outline-primary d-inline-flex align-items-center gap-2 o_wab_month_link o_wab_next_month_btn"
                                         >
-                                            Try next month
-                                            <i class="fa fa-arrow-right ms-1" />
+                                            <span>Try next month</span>
+                                            <i class="fa fa-arrow-right" aria-hidden="true" />
                                         </a>
                                     </div>
                                 </t>
@@ -338,6 +429,19 @@
                                                     name="phone"
                                                     required="required"
                                                     placeholder="(555) 123-4567"
+                                                />
+                                            </div>
+                                            <div class="col-12">
+                                                <label
+                                                    for="o_wab_discussion"
+                                                    class="form-label"
+                                                >What would you like to discuss?</label>
+                                                <textarea
+                                                    class="form-control"
+                                                    id="o_wab_discussion"
+                                                    name="discussion"
+                                                    rows="4"
+                                                    placeholder="Share any details that would help us prepare for the meeting"
                                                 />
                                             </div>
                                         </div>

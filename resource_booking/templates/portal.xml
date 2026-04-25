@@ -269,6 +269,7 @@
                     t-value="'/resource_booking/static/src/img/portal_icon.svg'"
                 />
                 <t t-set="title">Bookings</t>
+                <t t-set="text">Review and manage your bookings</t>
                 <t t-set="url" t-value="'/my/bookings'" />
                 <t t-set="placeholder_count" t-value="'booking_count'" />
             </t>

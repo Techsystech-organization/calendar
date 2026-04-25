@@ -13,6 +13,7 @@ from odoo import http
 from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import ValidationError
 from odoo.http import request
+from odoo.tools.mail import plaintext2html
 
 
 class WebsiteAppointmentBooking(http.Controller):
@@ -25,6 +26,34 @@ class WebsiteAppointmentBooking(http.Controller):
                 [("website_slug", "=", slug), ("website_published", "=", True)],
                 limit=1,
             )
+        )
+
+    def _get_published_booking_types(self):
+        """Return public booking types shown on the /book landing page."""
+        return (
+            request.env["resource.booking.type"]
+            .sudo()
+            .search(
+                [
+                    ("website_published", "=", True),
+                    ("website_slug", "!=", False),
+                ],
+                order="name",
+            )
+        )
+
+    @http.route(
+        "/book",
+        auth="public",
+        type="http",
+        website=True,
+        sitemap=True,
+    )
+    def booking_landing_page(self, **kwargs):
+        """Render the public booking landing page."""
+        return request.render(
+            "website_appointment_booking.booking_landing_page",
+            {"booking_types": self._get_published_booking_types()},
         )
 
     def _get_timezone_options(self):
@@ -244,6 +273,7 @@ class WebsiteAppointmentBooking(http.Controller):
         name = (kwargs.get("name") or "").strip()
         email = (kwargs.get("email") or "").strip()
         phone = (kwargs.get("phone") or "").strip()
+        discussion = (kwargs.get("discussion") or "").strip()
         when_str = kwargs.get("when", "")
         if not name or not email or not phone or not when_str:
             return request.redirect(
@@ -287,6 +317,7 @@ class WebsiteAppointmentBooking(http.Controller):
                     {
                         "type_id": booking_type.id,
                         "partner_ids": [(4, partner.id)],
+                        "description": plaintext2html(discussion) if discussion else False,
                         "combination_auto_assign": not bool(selected_combination),
                         "combination_id": selected_combination.id or False,
                     }

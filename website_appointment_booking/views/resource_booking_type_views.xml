@@ -10,6 +10,15 @@
             ref="resource_booking.resource_booking_type_view_form"
         />
         <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="before">
+                <field
+                    name="website_card_image"
+                    widget="image"
+                    class="oe_avatar"
+                    invisible="not website_published"
+                    options="{'preview_image': 'website_card_image'}"
+                />
+            </xpath>
             <xpath expr="//group[@name='main']" position="after">
                 <group name="website" string="Website">
                     <group>
@@ -19,6 +28,12 @@
                     <group>
                         <field
                             name="website_description"
+                            invisible="not website_published"
+                        />
+                        <field
+                            name="website_card_resource_ids"
+                            string="Card Avatars"
+                            widget="many2many_tags"
                             invisible="not website_published"
                         />
                     </group>

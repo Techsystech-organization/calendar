@@ -35,6 +35,28 @@ class ResourceBookingType(models.Model):
         sanitize_attributes=False,
         help="Introductory text displayed on the public booking page.",
     )
+    website_card_image = fields.Image(
+        string="Booking Card Photo",
+        max_width=1024,
+        max_height=1024,
+        help="Photo displayed for this booking type on the public /book landing page.",
+    )
+    website_card_user_ids = fields.Many2many(
+        comodel_name="res.users",
+        relation="resource_booking_type_website_card_user_rel",
+        column1="type_id",
+        column2="user_id",
+        string="Card Avatar Users",
+        help="Users whose avatars are displayed on the public /book card.",
+    )
+    website_card_resource_ids = fields.Many2many(
+        comodel_name="resource.resource",
+        relation="resource_booking_type_website_card_resource_rel",
+        column1="type_id",
+        column2="resource_id",
+        string="Card Avatar Resources",
+        help="Resources whose avatars are displayed on the public /book card.",
+    )
 
     _sql_constraints = [
         (
