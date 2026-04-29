@@ -42,6 +42,14 @@ class WebsiteAppointmentBooking(http.Controller):
             )
         )
 
+    def _get_booking_landing_website_page(self):
+        """Return the standard website.page record that controls /book publishing."""
+        page = request.env.ref(
+            "website_appointment_booking.booking_landing_website_page",
+            raise_if_not_found=False,
+        )
+        return page.sudo() if page else page
+
     @http.route(
         "/book",
         auth="public",
@@ -51,9 +59,19 @@ class WebsiteAppointmentBooking(http.Controller):
     )
     def booking_landing_page(self, **kwargs):
         """Render the public booking landing page."""
+        website_page = self._get_booking_landing_website_page()
+        if (
+            website_page
+            and not website_page.website_published
+            and not request.env.user.has_group("website.group_website_designer")
+        ):
+            raise NotFound()
         return request.render(
             "website_appointment_booking.booking_landing_page",
-            {"booking_types": self._get_published_booking_types()},
+            {
+                "booking_types": self._get_published_booking_types(),
+                "main_object": website_page,
+            },
         )
 
     def _get_timezone_options(self):

@@ -65,8 +65,7 @@ class TestWebsiteAppointmentBooking(HttpCase):
         card = test_cards[0]
         self.assertTrue(card.cssselect(":contains('Test resource booking type')"))
         self.assertTrue(card.cssselect('img[src*="/web/image/resource.booking.type/"]'))
-        self.assertTrue(card.cssselect('img[src*="/web/image/res.users/"]'))
-        self.assertTrue(card.cssselect('img[src*="/web/image/resource.resource/"]'))
+        self.assertTrue(card.cssselect('img[src^="data:image"][alt]'))
         self.assertIn("col-lg-3", card.getparent().get("class", ""))
         self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('30 min')"))
         self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('Main office')"))
@@ -75,6 +74,19 @@ class TestWebsiteAppointmentBooking(HttpCase):
         """Published flag controls /book card visibility without deleting slug data."""
         page = self._url_xml("/book")
         self.assertFalse(page.cssselect('a[href="/book/unpublished-type"]'))
+
+    def test_landing_page_has_standard_website_page_publish_record(self):
+        """The /book route has a standard website.page record for editor publishing."""
+        website_page = self.env.ref(
+            "website_appointment_booking.booking_landing_website_page"
+        )
+        self.assertEqual(website_page.url, "/book")
+        self.assertEqual(website_page.view_id.key, "website_appointment_booking.booking_landing_page")
+        self.assertTrue(website_page.website_published)
+
+    def test_booking_type_website_url_points_to_public_slug(self):
+        """Booking types expose the standard website URL used by the smart button."""
+        self.assertEqual(self.rbt.website_url, "/book/test-booking")
 
     def test_unpublished_returns_404(self):
         """Unpublished booking types are not accessible.

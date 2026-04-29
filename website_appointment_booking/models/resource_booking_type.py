@@ -57,6 +57,11 @@ class ResourceBookingType(models.Model):
         string="Card Avatar Resources",
         help="Resources whose avatars are displayed on the public /book card.",
     )
+    website_url = fields.Char(
+        string="Website URL",
+        compute="_compute_website_url",
+        help="Public booking page URL for this booking type.",
+    )
 
     _sql_constraints = [
         (
@@ -71,3 +76,12 @@ class ResourceBookingType(models.Model):
         for record in self:
             if not record.website_slug and record.name:
                 record.website_slug = _slugify(record.name)
+
+    @api.depends("website_slug")
+    def _compute_website_url(self):
+        for record in self:
+            record.website_url = f"/book/{record.website_slug}" if record.website_slug else "/book"
+
+    def open_website_url(self):
+        self.ensure_one()
+        return self.env["website"].get_client_action(self.website_url)
