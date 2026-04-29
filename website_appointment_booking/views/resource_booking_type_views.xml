@@ -39,6 +39,20 @@
                     <group>
                         <field name="website_published" />
                         <field name="website_slug" invisible="not website_published" />
+                        <field name="require_upfront_payment" invisible="not website_published" />
+                        <field
+                            name="payment_product_id"
+                            invisible="not require_upfront_payment"
+                            required="require_upfront_payment"
+                        />
+                        <field
+                            name="payment_price"
+                            invisible="not require_upfront_payment"
+                        />
+                        <field
+                            name="payment_hold_expiry_hours"
+                            invisible="not require_upfront_payment"
+                        />
                     </group>
                     <group>
                         <field
