@@ -223,7 +223,7 @@ class WebsiteAppointmentBooking(http.Controller):
                 "order_line": [Command.clear()],
             }
         )
-        price_unit = booking_type.payment_price or product.lst_price
+        price_unit = booking_type.website_payment_price
         request.env["sale.order.line"].sudo().create(
             {
                 "order_id": order.id,

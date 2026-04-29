@@ -47,6 +47,17 @@
                                                 <i class="fa fa-map-marker" />
                                                 <t t-out="booking_type.location" />
                                             </span>
+                                            <span
+                                                t-if="booking_type.require_upfront_payment"
+                                                class="o_wab_card_meta_item o_wab_payment_price"
+                                            >
+                                                <i class="fa fa-credit-card" />
+                                                <span>Upfront payment:</span>
+                                                <strong
+                                                    t-out="booking_type.website_payment_price"
+                                                    t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                                                />
+                                            </span>
                                         </div>
                                         <div
                                             t-if="booking_type.website_card_user_ids or booking_type.website_card_resource_ids"
@@ -123,6 +134,17 @@
                                     >
                                         <i class="fa fa-map-marker" />
                                         <t t-out="booking_type.location" />
+                                    </span>
+                                    <span
+                                        t-if="booking_type.require_upfront_payment"
+                                        class="o_wab_meta_pill o_wab_payment_price"
+                                    >
+                                        <i class="fa fa-credit-card" />
+                                        <span>Upfront payment:</span>
+                                        <strong
+                                            t-out="booking_type.website_payment_price"
+                                            t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                                        />
                                     </span>
                                 </div>
                             </div>
@@ -445,12 +467,26 @@
                                                 />
                                             </div>
                                         </div>
+                                        <t t-if="booking_type.require_upfront_payment">
+                                            <div class="alert alert-info d-flex align-items-center gap-2" role="status">
+                                                <i class="fa fa-credit-card" />
+                                                <span>
+                                                    This booking requires an upfront payment of
+                                                    <strong
+                                                        t-out="booking_type.website_payment_price"
+                                                        t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                                                    />
+                                                    to schedule your appointment.
+                                                </span>
+                                            </div>
+                                        </t>
                                         <button
                                             type="submit"
                                             class="btn btn-primary o_wab_submit_btn"
                                         >
                                             <i class="fa fa-check me-1" />
-                                            Confirm Booking
+                                            <t t-if="booking_type.require_upfront_payment">Continue to Checkout</t>
+                                            <t t-else="">Confirm Booking</t>
                                         </button>
                                     </form>
                                 </div>
@@ -560,6 +596,33 @@
             </div>
         </t>
     </template>
+    <template id="paid_booking_shop_confirmation" inherit_id="website_sale.confirmation">
+        <xpath expr="//h3[contains(., 'Thank you for your order.')]" position="after">
+            <div
+                t-if="order.website_booking_ids"
+                class="alert alert-success mt-3 o_wab_paid_booking_confirmation"
+                role="status"
+            >
+                <h4 class="alert-heading h5 mb-2">
+                    <i class="fa fa-calendar-check-o me-1" />
+                    Booking Scheduled
+                </h4>
+                <p class="mb-0">
+                    Your payment is complete and your booking has been scheduled.
+                </p>
+                <ul class="mb-0 mt-2 ps-3">
+                    <li t-foreach="order.website_booking_ids" t-as="booking">
+                        <strong t-out="booking.type_id.name" />
+                        <t t-if="booking.start">
+                            <span> on </span>
+                            <span t-field="booking.start" />
+                        </t>
+                    </li>
+                </ul>
+            </div>
+        </xpath>
+    </template>
+
     <data noupdate="1">
         <record id="booking_landing_website_page" model="website.page">
             <field name="name">Book an appointment</field>

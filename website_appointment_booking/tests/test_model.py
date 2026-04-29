@@ -105,6 +105,9 @@ class TestResourceBookingTypeWebsite(TransactionCase):
         self.assertTrue(self.rbt.require_upfront_payment)
         self.assertEqual(self.rbt.payment_product_id, product)
         self.assertEqual(self.rbt.payment_price, 25.0)
+        self.assertEqual(self.rbt.website_payment_price, 25.0)
+        self.rbt.payment_price = 0.0
+        self.assertEqual(self.rbt.website_payment_price, 50.0)
         self.assertEqual(self.rbt.payment_hold_expiry_hours, 0.5)
 
     def _create_scheduled_payment_booking(self):

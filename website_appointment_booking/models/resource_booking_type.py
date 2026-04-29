@@ -80,6 +80,12 @@ class ResourceBookingType(models.Model):
         help="Price charged for the upfront booking payment. If empty, the "
         "product sales price is used.",
     )
+    website_payment_price = fields.Monetary(
+        string="Website Payment Price",
+        compute="_compute_website_payment_price",
+        currency_field="currency_id",
+        help="Effective upfront payment shown on the website and charged at checkout.",
+    )
     payment_hold_expiry_hours = fields.Float(
         string="Checkout Hold Expiry",
         default=1.0,
@@ -105,6 +111,13 @@ class ResourceBookingType(models.Model):
         for record in self:
             if not record.website_slug and record.name:
                 record.website_slug = _slugify(record.name)
+
+    @api.depends("payment_price", "payment_product_id.lst_price")
+    def _compute_website_payment_price(self):
+        for record in self:
+            record.website_payment_price = (
+                record.payment_price or record.payment_product_id.lst_price
+            )
 
     @api.depends("website_slug")
     def _compute_website_url(self):
