@@ -24,6 +24,12 @@ class PortalCase(HttpCase):
         cls.user_portal = new_test_user(
             cls.env, login="ptl", password="ptl", groups="base.group_portal"
         )
+        cls.user_no_booking_access = new_test_user(
+            cls.env,
+            login="no_booking_access",
+            password="no_booking_access",
+            groups="base.group_user",
+        )
         cls.user_manager = new_test_user(
             cls.env,
             login="mgr",
@@ -48,6 +54,36 @@ class PortalCase(HttpCase):
             }
         )
         self.start_tour("/", "resource_booking_ptl2_tour", login="ptl")
+
+    def test_portal_home_booking_counter_without_booking_access(self):
+        self.authenticate("no_booking_access", "no_booking_access")
+
+        portal_home = self.url_open("/my")
+        self.assertEqual(portal_home.status_code, 200)
+        self.assertNotIn(b"You are not allowed", portal_home.content)
+
+        counters = self.make_jsonrpc_request(
+            "/my/counters", {"counters": ["booking_count"]}
+        )
+        self.assertEqual(counters["booking_count"], 0)
+
+        bookings_page = self.url_open("/my/bookings")
+        self.assertEqual(bookings_page.status_code, 200)
+        self.assertIn(b"There are currently no bookings", bookings_page.content)
+
+    def test_portal_home_booking_counter_with_booking_access(self):
+        self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.user_portal.partner_id.id)],
+                "type_id": self.rbt.id,
+            }
+        )
+        self.authenticate("ptl", "ptl")
+
+        counters = self.make_jsonrpc_request(
+            "/my/counters", {"counters": ["booking_count"]}
+        )
+        self.assertEqual(counters["booking_count"], 1)
 
     def test_portal_scheduling_conflict(self):
         """Produce a scheduling conflict and see how UI behaves.

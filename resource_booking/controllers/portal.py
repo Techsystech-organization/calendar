@@ -25,8 +25,9 @@ class CustomerPortal(portal.CustomerPortal):
     def _prepare_home_portal_values(self, counters):
         """Compute values for multi-booking portal views."""
         values = super()._prepare_home_portal_values(counters)
+        Booking = request.env["resource.booking"]
         if "booking_count" in counters:
-            booking_count = request.env["resource.booking"].search_count([])
+            booking_count = Booking.search_count([]) if Booking.has_access("read") else 0
             values.update({"booking_count": booking_count})
         return values
 
@@ -51,6 +52,9 @@ class CustomerPortal(portal.CustomerPortal):
         """List bookings that I can access."""
         Booking = request.env["resource.booking"].with_context(using_portal=True)
         values = self._prepare_portal_layout_values()
+        if not Booking.has_access("read"):
+            values.update({"bookings": Booking, "pager": {}, "page_name": "bookings"})
+            return request.render("resource_booking.portal_my_bookings", values)
         booking_count = Booking.search_count([])
         pager = portal.pager(
             url="/my/bookings",
