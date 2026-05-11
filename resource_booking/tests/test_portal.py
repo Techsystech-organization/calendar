@@ -3,6 +3,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from datetime import datetime
+from unittest.mock import patch
 
 from freezegun import freeze_time
 from lxml.html import fromstring
@@ -84,6 +85,28 @@ class PortalCase(HttpCase):
             "/my/counters", {"counters": ["booking_count"]}
         )
         self.assertEqual(counters["booking_count"], 1)
+
+    def test_portal_list_token_generation_does_not_sync_meeting(self):
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.user_portal.partner_id.id)],
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "start": datetime(2021, 3, 1, 8),
+            }
+        )
+        self.assertTrue(booking.meeting_id)
+        booking.access_token = False
+
+        with patch.object(
+            type(booking),
+            "_sync_meeting",
+            side_effect=AssertionError("access_token write should not sync meeting"),
+        ):
+            portal_url = booking.get_portal_url()
+
+        self.assertTrue(booking.access_token)
+        self.assertIn("access_token=", portal_url)
 
     def test_portal_scheduling_conflict(self):
         """Produce a scheduling conflict and see how UI behaves.
