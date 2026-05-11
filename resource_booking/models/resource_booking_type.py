@@ -13,11 +13,6 @@ class ResourceBookingType(models.Model):
     _sql_constraints = [
         ("duration_positive", "CHECK(duration > 0)", "Duration must be positive."),
         (
-            "booking_buffer_nonnegative",
-            "CHECK(booking_buffer >= 0)",
-            "Booking buffer must be zero or positive.",
-        ),
-        (
             "max_advance_booking_days_nonnegative",
             "CHECK(max_advance_booking_days >= 0)",
             "Maximum advance booking days must be zero or positive.",
@@ -68,14 +63,6 @@ class ResourceBookingType(models.Model):
         required=True,
         default=0.5,  # 30 minutes
         help=("Booking default duration."),
-    )
-    booking_buffer = fields.Float(
-        string="Buffer Time",
-        default=0.0,
-        help=(
-            "Extra time, expressed in hours, to block after a scheduled booking "
-            "before another booking can start."
-        ),
     )
     max_advance_booking_days = fields.Integer(
         string="Maximum Advance Booking Days",

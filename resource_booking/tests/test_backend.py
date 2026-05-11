@@ -324,11 +324,34 @@ class BackendCaseMisc(BackendCaseBase):
         )
         self.assertFalse(any(day > max_start.date() for day in slots))
 
-    def test_booking_buffer_blocks_following_slots(self):
+    def test_resource_buffer_blocks_shared_resource_following_slots(self):
         self.rbt.write(
             {
-                "booking_buffer": 0.5,
                 "combination_assignment": "sorted",
+                "duration": 1.0,
+                "modifications_deadline": 0,
+                "resource_calendar_id": self.r_calendars[0].id,
+                "slot_duration": 0.25,
+            }
+        )
+        self.r_users[0].booking_buffer = 0.5
+        shared_material = self.env["resource.resource"].create(
+            {
+                "name": "Shared-resource alternate material",
+                "calendar_id": self.r_calendars[0].id,
+                "resource_type": "material",
+                "tz": "UTC",
+            }
+        )
+        shared_user_combination = self.env["resource.booking.combination"].create(
+            {"resource_ids": [Command.set([self.r_users[0].id, shared_material.id])]}
+        )
+        other_type = self.env["resource.booking.type"].create(
+            {
+                "name": "Other booking option",
+                "combination_rel_ids": [
+                    Command.create({"sequence": 0, "combination_id": shared_user_combination.id})
+                ],
                 "duration": 1.0,
                 "modifications_deadline": 0,
                 "resource_calendar_id": self.r_calendars[0].id,
@@ -347,9 +370,9 @@ class BackendCaseMisc(BackendCaseBase):
         )
         booking = self.env["resource.booking"].new(
             {
-                "type_id": self.rbt.id,
+                "type_id": other_type.id,
                 "duration": 1.0,
-                "combination_id": self.rbcs[0].id,
+                "combination_id": shared_user_combination.id,
                 "combination_auto_assign": False,
             }
         )
@@ -360,6 +383,23 @@ class BackendCaseMisc(BackendCaseBase):
         monday_slots = slots[datetime(2021, 3, 1).date()]
         self.assertNotIn(utc.localize(datetime(2021, 3, 1, 9)), monday_slots)
         self.assertIn(utc.localize(datetime(2021, 3, 1, 9, 30)), monday_slots)
+
+        unrelated_booking = self.env["resource.booking"].new(
+            {
+                "type_id": self.rbt.id,
+                "duration": 1.0,
+                "combination_id": self.rbcs[2].id,
+                "combination_auto_assign": False,
+            }
+        )
+        unrelated_slots = unrelated_booking._get_available_slots(
+            utc.localize(datetime(2021, 3, 1)),
+            utc.localize(datetime(2021, 3, 2)),
+        )
+        self.assertIn(
+            utc.localize(datetime(2021, 3, 1, 9)),
+            unrelated_slots[datetime(2021, 3, 1).date()],
+        )
 
     def test_dates_inverse(self):
         """Start & stop fields are computed with inverse. Test their workflow."""

@@ -588,23 +588,26 @@ class ResourceBooking(models.Model):
                 test_start += slot_duration
         return result
 
-    def _get_buffered_booking_intervals(self, start_dt, end_dt, combinations):
-        """Return post-booking buffer intervals to subtract from availability."""
-        buffer_delta = timedelta(hours=self.type_id.booking_buffer)
-        if not buffer_delta or not combinations:
+    def _get_buffered_booking_intervals(self, start_dt, end_dt, combination):
+        """Return resource-level post-booking buffer intervals for a combination."""
+        if not combination:
+            return Intervals([])
+        resources = combination.resource_ids.filtered("booking_buffer")
+        if not resources:
+            return Intervals([])
+        max_buffer_delta = timedelta(hours=max(resources.mapped("booking_buffer")))
+        if not max_buffer_delta:
             return Intervals([])
         try:
             booking_id = self.id or self._origin.id or -1
         except AttributeError:
             booking_id = -1
-        combination_ids = combinations.ids
-        search_start = (start_dt - buffer_delta).astimezone(utc).replace(tzinfo=None)
+        search_start = (start_dt - max_buffer_delta).astimezone(utc).replace(tzinfo=None)
         search_end = end_dt.astimezone(utc).replace(tzinfo=None)
         buffered_bookings = self.env["resource.booking"].sudo().search(
             [
                 ("id", "!=", booking_id),
-                ("type_id", "=", self.type_id.id),
-                ("combination_id", "in", combination_ids),
+                ("combination_id.resource_ids", "in", resources.ids),
                 ("meeting_id", "!=", False),
                 ("stop", ">", fields.Datetime.to_string(search_start)),
                 ("stop", "<", fields.Datetime.to_string(search_end)),
@@ -612,8 +615,12 @@ class ResourceBooking(models.Model):
         )
         intervals = []
         for booking in buffered_bookings:
+            overlapping_resources = booking.combination_id.resource_ids & resources
+            buffer_hours = max(overlapping_resources.mapped("booking_buffer") or [0])
+            if not buffer_hours:
+                continue
             buffer_start = fields.Datetime.context_timestamp(self, booking.stop)
-            buffer_stop = buffer_start + buffer_delta
+            buffer_stop = buffer_start + timedelta(hours=buffer_hours)
             if buffer_start < end_dt and buffer_stop > start_dt:
                 intervals.append((buffer_start, buffer_stop, booking))
         return Intervals(intervals)
@@ -646,9 +653,14 @@ class ResourceBooking(models.Model):
             or booking.mapped("type_id.combination_rel_ids.combination_id")
         ).with_context(analyzing_booking=booking_id)
         tz = timezone(self.type_id.resource_calendar_id.tz)
-        result &= combinations._get_intervals(start_dt, end_dt, tz)
-        result -= booking._get_buffered_booking_intervals(start_dt, end_dt, combinations)
-        return result
+        available_result = Intervals([])
+        for combination in combinations:
+            combination_result = result & combination._get_intervals(start_dt, end_dt, tz)
+            combination_result -= booking._get_buffered_booking_intervals(
+                start_dt, end_dt, combination
+            )
+            available_result |= combination_result
+        return available_result
 
     def _sync_booking_activities_date(self):
         for rec in self.filtered("booking_activity_ids"):
