@@ -2,7 +2,7 @@
 # Copyright 2022 Tecnativa - Pedro M. Baeza
 # Copyright 2024 Tecnativa - Carolina Fernandez
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 from dateutil.relativedelta import relativedelta
@@ -302,6 +302,64 @@ class BackendCaseMisc(BackendCaseBase):
         booking = booking_form.save()
         self.assertTrue(booking.meeting_id)
         self.assertEqual(booking.state, "scheduled")
+
+    def test_available_slots_respect_max_advance_booking_days(self):
+        self.rbt.write(
+            {
+                "max_advance_booking_days": 4,
+                "modifications_deadline": 0,
+                "resource_calendar_id": self.r_calendars[2].id,
+                "slot_duration": 0.5,
+            }
+        )
+        booking = self.env["resource.booking"].new(
+            {"type_id": self.rbt.id, "duration": self.rbt.duration}
+        )
+        now = fields.Datetime.context_timestamp(booking, fields.Datetime.now())
+        slots = booking._get_available_slots(now, now + timedelta(days=10))
+        max_start = now + timedelta(days=4)
+        self.assertTrue(slots)
+        self.assertTrue(
+            all(slot <= max_start for day_slots in slots.values() for slot in day_slots)
+        )
+        self.assertFalse(any(day > max_start.date() for day in slots))
+
+    def test_booking_buffer_blocks_following_slots(self):
+        self.rbt.write(
+            {
+                "booking_buffer": 0.5,
+                "combination_assignment": "sorted",
+                "duration": 1.0,
+                "modifications_deadline": 0,
+                "resource_calendar_id": self.r_calendars[0].id,
+                "slot_duration": 0.25,
+            }
+        )
+        self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "duration": 1.0,
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+            }
+        )
+        booking = self.env["resource.booking"].new(
+            {
+                "type_id": self.rbt.id,
+                "duration": 1.0,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+            }
+        )
+        slots = booking._get_available_slots(
+            utc.localize(datetime(2021, 3, 1)),
+            utc.localize(datetime(2021, 3, 2)),
+        )
+        monday_slots = slots[datetime(2021, 3, 1).date()]
+        self.assertNotIn(utc.localize(datetime(2021, 3, 1, 9)), monday_slots)
+        self.assertIn(utc.localize(datetime(2021, 3, 1, 9, 30)), monday_slots)
 
     def test_dates_inverse(self):
         """Start & stop fields are computed with inverse. Test their workflow."""

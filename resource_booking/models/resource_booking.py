@@ -7,7 +7,7 @@ import calendar
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
-from pytz import timezone
+from pytz import timezone, utc
 
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
@@ -559,6 +559,11 @@ class ResourceBooking(models.Model):
         start_dt = max(
             start_dt, now + timedelta(hours=self.type_id.modifications_deadline)
         )
+        max_advance_days = self.type_id.max_advance_booking_days
+        max_start_dt = False
+        if max_advance_days:
+            max_start_dt = now + timedelta(days=max_advance_days)
+            end_dt = min(end_dt, max_start_dt + booking_duration)
         # available_intervals should start with the beginning of the work day,
         # to compute each slot based on the beginning of the work day.
         workday_min = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -573,6 +578,7 @@ class ResourceBooking(models.Model):
                 test_stop = test_start + booking_duration
                 if (
                     test_start >= start_dt
+                    and (not max_start_dt or test_start <= max_start_dt)
                     and test_start >= available_start
                     and test_stop <= available_stop
                 ):
@@ -581,6 +587,36 @@ class ResourceBooking(models.Model):
                     result[test_start.date()].append(test_start)
                 test_start += slot_duration
         return result
+
+    def _get_buffered_booking_intervals(self, start_dt, end_dt, combinations):
+        """Return post-booking buffer intervals to subtract from availability."""
+        buffer_delta = timedelta(hours=self.type_id.booking_buffer)
+        if not buffer_delta or not combinations:
+            return Intervals([])
+        try:
+            booking_id = self.id or self._origin.id or -1
+        except AttributeError:
+            booking_id = -1
+        combination_ids = combinations.ids
+        search_start = (start_dt - buffer_delta).astimezone(utc).replace(tzinfo=None)
+        search_end = end_dt.astimezone(utc).replace(tzinfo=None)
+        buffered_bookings = self.env["resource.booking"].sudo().search(
+            [
+                ("id", "!=", booking_id),
+                ("type_id", "=", self.type_id.id),
+                ("combination_id", "in", combination_ids),
+                ("meeting_id", "!=", False),
+                ("stop", ">", fields.Datetime.to_string(search_start)),
+                ("stop", "<", fields.Datetime.to_string(search_end)),
+            ]
+        )
+        intervals = []
+        for booking in buffered_bookings:
+            buffer_start = fields.Datetime.context_timestamp(self, booking.stop)
+            buffer_stop = buffer_start + buffer_delta
+            if buffer_start < end_dt and buffer_stop > start_dt:
+                intervals.append((buffer_start, buffer_stop, booking))
+        return Intervals(intervals)
 
     def _get_intervals(self, start_dt, end_dt, combination=None):
         """Get available intervals for this booking,
@@ -611,6 +647,7 @@ class ResourceBooking(models.Model):
         ).with_context(analyzing_booking=booking_id)
         tz = timezone(self.type_id.resource_calendar_id.tz)
         result &= combinations._get_intervals(start_dt, end_dt, tz)
+        result -= booking._get_buffered_booking_intervals(start_dt, end_dt, combinations)
         return result
 
     def _sync_booking_activities_date(self):
