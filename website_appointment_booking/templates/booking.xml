@@ -423,6 +423,7 @@
                                                     name="name"
                                                     required="required"
                                                     placeholder="Your full name"
+                                                    t-att-value="contact_prefill.get('name')"
                                                 />
                                             </div>
                                             <div class="col-md-4">
@@ -437,6 +438,7 @@
                                                     name="email"
                                                     required="required"
                                                     placeholder="you@example.com"
+                                                    t-att-value="contact_prefill.get('email')"
                                                 />
                                             </div>
                                             <div class="col-md-4">
@@ -451,6 +453,7 @@
                                                     name="phone"
                                                     required="required"
                                                     placeholder="(555) 123-4567"
+                                                    t-att-value="contact_prefill.get('phone')"
                                                 />
                                             </div>
                                             <div class="col-12">
@@ -597,29 +600,79 @@
         </t>
     </template>
     <template id="paid_booking_shop_confirmation" inherit_id="website_sale.confirmation">
-        <xpath expr="//h3[contains(., 'Thank you for your order.')]" position="after">
-            <div
+        <xpath expr="//t[@t-call='website_sale.payment_confirmation_status']/following-sibling::div[contains(@class, 'card')][1]" position="after">
+            <section
                 t-if="order.website_booking_ids"
-                class="alert alert-success mt-3 o_wab_paid_booking_confirmation"
+                class="card mt-3 o_wab_paid_booking_confirmation"
                 role="status"
             >
-                <h4 class="alert-heading h5 mb-2">
-                    <i class="fa fa-calendar-check-o me-1" />
-                    Booking Scheduled
-                </h4>
-                <p class="mb-0">
-                    Your payment is complete and your booking has been scheduled.
-                </p>
-                <ul class="mb-0 mt-2 ps-3">
-                    <li t-foreach="order.website_booking_ids" t-as="booking">
-                        <strong t-out="booking.type_id.name" />
-                        <t t-if="booking.start">
-                            <span> on </span>
-                            <span t-field="booking.start" />
-                        </t>
-                    </li>
-                </ul>
-            </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                        <h4 class="h5 mb-0">
+                            <i class="fa fa-calendar-check-o me-1 text-success" />
+                            Booking Scheduled
+                        </h4>
+                        <span class="badge text-bg-success">Booked</span>
+                    </div>
+                    <p class="text-muted mb-3">
+                        Your payment is complete and your booking has been scheduled.
+                    </p>
+                    <div class="vstack gap-3">
+                        <article
+                            t-foreach="order.website_booking_ids"
+                            t-as="booking"
+                            class="o_wab_paid_booking_card border rounded overflow-hidden"
+                        >
+                            <div class="row g-0">
+                                <div class="col-md-3 bg-light d-flex align-items-center justify-content-center">
+                                    <img
+                                        t-if="booking.type_id.website_card_image"
+                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image' % booking.type_id.id"
+                                        t-att-alt="booking.type_id.name"
+                                        class="img-fluid h-100 w-100 o_wab_paid_booking_img"
+                                    />
+                                    <i
+                                        t-else=""
+                                        class="fa fa-calendar-check-o fa-3x text-muted py-4"
+                                        aria-hidden="true"
+                                    />
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="p-3">
+                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                            <h5 class="mb-1" t-out="booking.type_id.name" />
+                                            <span class="badge text-bg-success flex-shrink-0">Booked</span>
+                                        </div>
+                                        <div class="text-muted small d-flex flex-wrap gap-3 mb-2">
+                                            <span t-if="booking.start">
+                                                <i class="fa fa-clock-o me-1" />
+                                                <span t-field="booking.start" />
+                                            </span>
+                                            <span t-if="booking.duration">
+                                                <i class="fa fa-hourglass-half me-1" />
+                                                <t t-out="'%d min' % int(booking.duration * 60)" />
+                                            </span>
+                                            <span t-if="booking.type_id.location">
+                                                <i class="fa fa-map-marker me-1" />
+                                                <t t-out="booking.type_id.location" />
+                                            </span>
+                                        </div>
+                                        <div
+                                            t-if="booking.type_id.website_description"
+                                            class="small text-muted mb-3"
+                                            t-field="booking.type_id.website_description"
+                                        />
+                                        <a
+                                            t-att-href="booking.get_portal_url()"
+                                            class="btn btn-outline-primary btn-sm"
+                                        >View details</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
         </xpath>
     </template>
 

@@ -89,6 +89,17 @@ class WebsiteAppointmentBooking(http.Controller):
             return cookie_tz
         return default_tz
 
+    def _get_booking_contact_prefill(self):
+        """Return logged-in customer contact values for the public booking form."""
+        if request.website.is_public_user():
+            return {}
+        partner = request.env.user.sudo().partner_id
+        return {
+            "name": partner.name or "",
+            "email": partner.email or request.env.user.email or "",
+            "phone": partner.phone or partner.mobile or "",
+        }
+
     def _get_combination_options(self, booking_type):
         """Return ordered combination options for public resource selection."""
         return [
@@ -278,6 +289,7 @@ class WebsiteAppointmentBooking(http.Controller):
         values = {
             "booking_type": booking_type,
             "combination_options": self._get_combination_options(booking_type),
+            "contact_prefill": self._get_booking_contact_prefill(),
             "slot_data": slot_payload["slot_data"],
             "slot_data_json": slot_payload["slot_data_json"],
             "selected_tz": slot_payload["selected_tz"],

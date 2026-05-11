@@ -112,6 +112,31 @@ class TestWebsiteAppointmentBooking(HttpCase):
         # Duration pill should be present
         self.assertTrue(page.cssselect(".o_wab_meta_pill:contains('30 min')"))
 
+    def test_booking_page_prefills_logged_in_contact_fields(self):
+        """Logged-in users see account contact values prefilled in the booking form."""
+        admin = self.env.ref("base.user_admin")
+        admin.partner_id.write(
+            {
+                "name": "Admin Booker",
+                "email": "admin-booker@example.com",
+                "phone": "+1 555-7777",
+            }
+        )
+        self.authenticate("admin", "admin")
+        page = self._url_xml("/book/test-booking/2021/3")
+        self.assertEqual(page.cssselect('#o_wab_name')[0].get("value"), "Admin Booker")
+        self.assertEqual(
+            page.cssselect('#o_wab_email')[0].get("value"), "admin-booker@example.com"
+        )
+        self.assertEqual(page.cssselect('#o_wab_phone')[0].get("value"), "+1 555-7777")
+
+    def test_booking_page_leaves_public_contact_fields_blank(self):
+        """Public visitors still get empty booking contact fields."""
+        page = self._url_xml("/book/test-booking/2021/3")
+        self.assertIsNone(page.cssselect('#o_wab_name')[0].get("value"))
+        self.assertIsNone(page.cssselect('#o_wab_email')[0].get("value"))
+        self.assertIsNone(page.cssselect('#o_wab_phone')[0].get("value"))
+
     def test_booking_page_february_no_slots(self):
         """February 2021 has no available Monday/Tuesday slots (too close)."""
         page = self._url_xml("/book/test-booking")
@@ -523,6 +548,11 @@ class TestPaidWebsiteAppointmentBooking(HttpCase):
         )
         self.assertIn("Booking Scheduled", view.arch_db)
         self.assertIn("your booking has been scheduled", view.arch_db)
+        self.assertIn('text-bg-success">Booked</span>', view.arch_db)
+        self.assertIn("o_wab_paid_booking_card", view.arch_db)
+        self.assertIn("View details", view.arch_db)
+        self.assertIn("website_sale.payment_confirmation_status", view.arch_db)
+        self.assertNotIn("//h3[contains(., 'Thank you for your order.')]", view.arch_db)
 
 
 @freeze_time("2021-02-26 09:00:00", tick=True)
