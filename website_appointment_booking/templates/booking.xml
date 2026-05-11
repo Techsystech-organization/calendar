@@ -607,12 +607,11 @@
                 role="status"
             >
                 <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-3">
                         <h4 class="h5 mb-0">
                             <i class="fa fa-calendar-check-o me-1 text-success" />
                             Booking Scheduled
                         </h4>
-                        <span class="badge text-bg-success">Booked</span>
                     </div>
                     <p class="text-muted mb-3">
                         Your payment is complete and your booking has been scheduled.

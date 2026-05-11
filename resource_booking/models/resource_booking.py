@@ -67,6 +67,40 @@ class ResourceBooking(models.Model):
         ),
     ]
 
+    def _get_portal_timezone(self):
+        self.ensure_one()
+        return (
+            self.type_id.resource_calendar_id.tz
+            or self.meeting_id.event_tz
+            or self.env.user.tz
+            or "UTC"
+        )
+
+    def _get_portal_timezone_label(self):
+        self.ensure_one()
+        timezone_labels = {
+            "America/Chicago": "central time",
+            "US/Central": "central time",
+            "America/New_York": "eastern time",
+            "US/Eastern": "eastern time",
+            "America/Denver": "mountain time",
+            "US/Mountain": "mountain time",
+            "America/Phoenix": "mountain time",
+            "America/Los_Angeles": "pacific time",
+            "US/Pacific": "pacific time",
+        }
+        tz_name = self._get_portal_timezone()
+        return timezone_labels.get(tz_name, tz_name.replace("_", " ").lower())
+
+    def _get_portal_start_display(self):
+        self.ensure_one()
+        if not self.start:
+            return ""
+        tz = timezone(self._get_portal_timezone())
+        start = utc.localize(self.start).astimezone(tz)
+        time_display = start.strftime("%I:%M%p").lstrip("0")
+        return f"{start.month}/{start.day}/{start.year} {time_display}"
+
     active = fields.Boolean(default=True)
     meeting_id = fields.Many2one(
         comodel_name="calendar.event",
