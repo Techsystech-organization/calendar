@@ -381,7 +381,7 @@
                                             <div class="o_rb_detail_label">Date and time</div>
                                             <div class="o_rb_detail_value">
                                                 <t t-out="booking_sudo._get_portal_start_display()" />
-                                                <span class="text-muted">
+                                                <span class="text-muted ms-1">
                                                     (<t t-out="booking_sudo._get_portal_timezone_label()" />)
                                                 </span>
                                             </div>
@@ -392,10 +392,7 @@
                                         <div>
                                             <div class="o_rb_detail_label">Duration</div>
                                             <div class="o_rb_detail_value">
-                                                <span
-                                                    t-field="booking_sudo.duration"
-                                                    t-options='{"widget": "float_time"}'
-                                                />
+                                                <t t-out="booking_sudo._get_portal_duration_display()" />
                                             </div>
                                         </div>
                                     </div>

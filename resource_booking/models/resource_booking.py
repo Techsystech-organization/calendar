@@ -96,10 +96,41 @@ class ResourceBooking(models.Model):
         self.ensure_one()
         if not self.start:
             return ""
-        tz = timezone(self._get_portal_timezone())
-        start = utc.localize(self.start).astimezone(tz)
-        time_display = start.strftime("%I:%M%p").lstrip("0")
-        return f"{start.month}/{start.day}/{start.year} {time_display}"
+        start = fields.Datetime.context_timestamp(self, self.start)
+        time_display = start.strftime("%I:%M %p").lstrip("0")
+        return f"{start.month}/{start.day}/{start.year % 100} {time_display}"
+
+    def _get_portal_duration_display(self):
+        self.ensure_one()
+        if not self.duration:
+            return ""
+        minutes = int(self.duration * 60)
+        if minutes < 60:
+            return f"{minutes} min"
+        hours = minutes // 60
+        mins = minutes % 60
+        if mins == 0:
+            return f"{hours} hr"
+        return f"{hours} hr {mins} min"
+
+    def _get_portal_timezone_label(self):
+        self.ensure_one()
+        if not self.start:
+            return ""
+        start = fields.Datetime.context_timestamp(self, self.start)
+        tz_name = start.tzinfo.zone if hasattr(start.tzinfo, "zone") else str(start.tzinfo)
+        timezone_labels = {
+            "America/Chicago": "central time",
+            "US/Central": "central time",
+            "America/New_York": "eastern time",
+            "US/Eastern": "eastern time",
+            "America/Denver": "mountain time",
+            "US/Mountain": "mountain time",
+            "America/Phoenix": "mountain time",
+            "America/Los_Angeles": "pacific time",
+            "US/Pacific": "pacific time",
+        }
+        return timezone_labels.get(tz_name, tz_name.replace("_", " ").lower())
 
     active = fields.Boolean(default=True)
     meeting_id = fields.Many2one(

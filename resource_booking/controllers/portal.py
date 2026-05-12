@@ -18,9 +18,7 @@ class CustomerPortal(portal.CustomerPortal):
         booking_sudo = self._document_check_access(
             "resource.booking", booking_id, access_token
         )
-        return booking_sudo.with_context(
-            using_portal=True, tz=booking_sudo.type_id.resource_calendar_id.tz
-        )
+        return booking_sudo.with_context(using_portal=True)
 
     def _prepare_home_portal_values(self, counters):
         """Compute values for multi-booking portal views."""
@@ -104,7 +102,10 @@ class CustomerPortal(portal.CustomerPortal):
         values = self._booking_get_page_view_values(
             booking_sudo, access_token, **kwargs
         )
-        values.update(booking_sudo._get_calendar_context(year, month))
+        tz = booking_sudo.type_id.resource_calendar_id.tz
+        values.update(
+            booking_sudo.with_context(tz=tz)._get_calendar_context(year, month)
+        )
         values.update({"error": error, "page_name": "booking_schedule"})
         return request.render(
             "resource_booking.resource_booking_portal_schedule", values
