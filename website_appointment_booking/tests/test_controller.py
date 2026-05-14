@@ -140,6 +140,9 @@ class TestWebsiteAppointmentBooking(HttpCase):
         """February 2021 has no available Monday/Tuesday slots (too close)."""
         page = self._url_xml("/book/test-booking")
         # February should have no available slots (within modification deadline)
+        # Month nav should still be visible so users can go back/forth
+        self.assertTrue(page.cssselect(".o_wab_month_nav"))
+        self.assertTrue(page.cssselect(".o_wab_month_label:contains('February 2021')"))
         self.assertTrue(
             page.cssselect(".o_wab_empty_month:contains('No available slots')")
         )
