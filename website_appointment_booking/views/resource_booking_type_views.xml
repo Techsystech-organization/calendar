@@ -60,14 +60,8 @@
                             invisible="not website_published"
                         />
                         <field
-                            name="website_card_user_ids"
-                            string="Card User Avatars"
-                            widget="many2many_tags"
-                            invisible="not website_published"
-                        />
-                        <field
                             name="website_card_resource_ids"
-                            string="Card Resource Avatars"
+                            string="Card Avatars"
                             widget="many2many_tags"
                             invisible="not website_published"
                         />

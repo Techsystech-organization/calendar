@@ -60,17 +60,9 @@
                                             </span>
                                         </div>
                                         <div
-                                            t-if="booking_type.website_card_user_ids or booking_type.website_card_resource_ids"
+                                            t-if="booking_type.website_card_resource_ids"
                                             class="o_wab_card_avatars d-flex align-items-center mb-3"
                                         >
-                                            <t t-foreach="booking_type.website_card_user_ids" t-as="avatar_user">
-                                                <img
-                                                    t-att-src="avatar_user.sudo().avatar_128 and image_data_uri(avatar_user.sudo().avatar_128) or '/web/static/img/user_placeholder.jpg'"
-                                                    t-att-alt="avatar_user.name"
-                                                    t-att-title="avatar_user.name"
-                                                    class="o_wab_card_avatar rounded-circle"
-                                                />
-                                            </t>
                                             <t t-foreach="booking_type.website_card_resource_ids" t-as="avatar_resource">
                                                 <img
                                                     t-att-src="avatar_resource.sudo().avatar_128 and image_data_uri(avatar_resource.sudo().avatar_128) or '/web/static/img/user_placeholder.jpg'"
