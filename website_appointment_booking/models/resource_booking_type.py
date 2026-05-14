@@ -43,11 +43,9 @@ class ResourceBookingType(models.Model):
     )
     website_card_resource_ids = fields.Many2many(
         comodel_name="resource.resource",
-        relation="resource_booking_type_website_card_resource_rel",
-        column1="type_id",
-        column2="resource_id",
-        string="Card Avatar Resources",
-        help="Resources whose avatars are displayed on the public /book card.",
+        compute="_compute_website_card_resource_ids",
+        string="Card Avatars",
+        help="User-linked resources from all combinations, displayed on the public /book card.",
     )
     website_url = fields.Char(
         string="Website URL",
@@ -97,6 +95,13 @@ class ResourceBookingType(models.Model):
             "The website slug must be unique.",
         ),
     ]
+
+    @api.depends("combination_rel_ids.combination_id.resource_ids")
+    def _compute_website_card_resource_ids(self):
+        for record in self:
+            record.website_card_resource_ids = record.combination_rel_ids.combination_id.resource_ids.filtered(
+                lambda r: r.user_id
+            )
 
     @api.depends("name")
     def _compute_website_slug(self):

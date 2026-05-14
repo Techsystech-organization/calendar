@@ -70,16 +70,18 @@ class TestResourceBookingTypeWebsite(TransactionCase):
         self.rbt.website_published = False
         self.assertEqual(self.rbt.website_slug, "keep-me")
 
-    def test_card_display_fields_can_be_configured(self):
-        """Booking types store card image plus selected resource avatars."""
+    def test_card_display_fields_are_computed_from_combinations(self):
+        """Card avatars are auto-computed from user-linked resources in combinations."""
         self.rbt.write(
             {
                 "website_card_image": base64.b64encode(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC")),
-                "website_card_resource_ids": [(6, 0, self.r_users[:1].ids)],
             }
         )
         self.assertTrue(self.rbt.website_card_image)
-        self.assertEqual(self.rbt.website_card_resource_ids, self.r_users[:1])
+        # All user resources from all combinations should appear
+        self.assertEqual(self.rbt.website_card_resource_ids, self.r_users)
+        # Material resources (no user_id) should be excluded
+        self.assertFalse(any(r in self.rbt.website_card_resource_ids for r in self.r_materials))
 
     def test_upfront_payment_fields_can_be_configured(self):
         """Published booking types can require checkout with product pricing."""

@@ -26,7 +26,6 @@ class TestWebsiteAppointmentBooking(HttpCase):
                 "website_published": True,
                 "website_slug": "test-booking",
                 "website_card_image": base64.b64encode(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC")),
-                "website_card_resource_ids": [(6, 0, cls.r_users[:1].ids)],
                 "location": "Main office",
             }
         )
