@@ -271,8 +271,7 @@
                 <t t-set="title">Bookings</t>
                 <t t-set="text">Review and manage your bookings</t>
                 <t t-set="url" t-value="'/my/bookings'" />
-                <t t-set="count" t-value="booking_count" />
-                <t t-set="config_card" t-value="True" />
+                <t t-set="placeholder_count" t-value="'booking_count'" />
             </t>
         </div>
     </template>
