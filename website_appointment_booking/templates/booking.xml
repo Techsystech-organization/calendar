@@ -18,7 +18,7 @@
                                 <article class="card h-100 o_wab_booking_card">
                                     <img
                                         t-if="booking_type.website_card_image"
-                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image' % booking_type.id"
+                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image?width=400&amp;height=400' % booking_type.id"
                                         t-att-alt="booking_type.name"
                                         class="card-img-top o_wab_booking_card_img"
                                     />
@@ -60,18 +60,10 @@
                                             </span>
                                         </div>
                                         <div
-                                            t-if="booking_type.website_card_user_ids or booking_type.website_card_resource_ids"
+                                            t-if="booking_type.sudo().website_card_resource_ids"
                                             class="o_wab_card_avatars d-flex align-items-center mb-3"
                                         >
-                                            <t t-foreach="booking_type.website_card_user_ids" t-as="avatar_user">
-                                                <img
-                                                    t-att-src="avatar_user.sudo().avatar_128 and image_data_uri(avatar_user.sudo().avatar_128) or '/web/static/img/user_placeholder.jpg'"
-                                                    t-att-alt="avatar_user.name"
-                                                    t-att-title="avatar_user.name"
-                                                    class="o_wab_card_avatar rounded-circle"
-                                                />
-                                            </t>
-                                            <t t-foreach="booking_type.website_card_resource_ids" t-as="avatar_resource">
+                                            <t t-foreach="booking_type.sudo().website_card_resource_ids" t-as="avatar_resource">
                                                 <img
                                                     t-att-src="avatar_resource.sudo().avatar_128 and image_data_uri(avatar_resource.sudo().avatar_128) or '/web/static/img/user_placeholder.jpg'"
                                                     t-att-alt="avatar_resource.name"
@@ -404,6 +396,15 @@
                                             name="combination_id"
                                             t-att-value="selected_combination_id or ''"
                                         />
+                                        <!-- Honeypot — bots fill this, humans don't -->
+                                        <input
+                                            type="text"
+                                            name="website"
+                                            class="o_wab_hp"
+                                            tabindex="-1"
+                                            autocomplete="off"
+                                            aria-hidden="true"
+                                        />
                                         <div class="mb-3">
                                             <span class="o_wab_selected_slot">
                                                 <i class="fa fa-calendar-check-o" />
@@ -626,7 +627,7 @@
                                 <div class="col-md-3 bg-light d-flex align-items-center justify-content-center">
                                     <img
                                         t-if="booking.type_id.website_card_image"
-                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image' % booking.type_id.id"
+                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image?width=400&amp;height=400' % booking.type_id.id"
                                         t-att-alt="booking.type_id.name"
                                         class="img-fluid h-100 w-100 o_wab_paid_booking_img"
                                     />
