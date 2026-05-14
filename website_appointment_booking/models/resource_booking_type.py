@@ -44,6 +44,8 @@ class ResourceBookingType(models.Model):
     website_card_resource_ids = fields.Many2many(
         comodel_name="resource.resource",
         compute="_compute_website_card_resource_ids",
+        store=False,
+        readonly=True,
         string="Card Avatars",
         help="User-linked resources from all combinations, displayed on the public /book card.",
     )
@@ -99,8 +101,9 @@ class ResourceBookingType(models.Model):
     @api.depends("combination_rel_ids.combination_id.resource_ids")
     def _compute_website_card_resource_ids(self):
         for record in self:
-            record.website_card_resource_ids = record.combination_rel_ids.combination_id.resource_ids.filtered(
-                lambda r: r.user_id
+            record.website_card_resource_ids = (
+                record.sudo()
+                .combination_rel_ids.combination_id.resource_ids.filtered(lambda r: r.user_id)
             )
 
     @api.depends("name")
