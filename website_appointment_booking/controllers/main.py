@@ -2,14 +2,14 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import pytz
 from dateutil.parser import isoparse
 from werkzeug.exceptions import NotFound
 
-from odoo import http
+from odoo import Command, fields, http
 from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import ValidationError
 from odoo.http import request
@@ -42,6 +42,14 @@ class WebsiteAppointmentBooking(http.Controller):
             )
         )
 
+    def _get_booking_landing_website_page(self):
+        """Return the standard website.page record that controls /book publishing."""
+        page = request.env.ref(
+            "website_appointment_booking.booking_landing_website_page",
+            raise_if_not_found=False,
+        )
+        return page.sudo() if page else page
+
     @http.route(
         "/book",
         auth="public",
@@ -51,9 +59,19 @@ class WebsiteAppointmentBooking(http.Controller):
     )
     def booking_landing_page(self, **kwargs):
         """Render the public booking landing page."""
+        website_page = self._get_booking_landing_website_page()
+        if (
+            website_page
+            and not website_page.website_published
+            and not request.env.user.has_group("website.group_website_designer")
+        ):
+            raise NotFound()
         return request.render(
             "website_appointment_booking.booking_landing_page",
-            {"booking_types": self._get_published_booking_types()},
+            {
+                "booking_types": self._get_published_booking_types(),
+                "main_object": website_page,
+            },
         )
 
     def _get_timezone_options(self):
@@ -70,6 +88,17 @@ class WebsiteAppointmentBooking(http.Controller):
         if cookie_tz in available_tzs:
             return cookie_tz
         return default_tz
+
+    def _get_booking_contact_prefill(self):
+        """Return logged-in customer contact values for the public booking form."""
+        if request.website.is_public_user():
+            return {}
+        partner = request.env.user.sudo().partner_id
+        return {
+            "name": partner.name or "",
+            "email": partner.email or request.env.user.email or "",
+            "phone": partner.phone or partner.mobile or "",
+        }
 
     def _get_combination_options(self, booking_type):
         """Return ordered combination options for public resource selection."""
@@ -178,6 +207,63 @@ class WebsiteAppointmentBooking(http.Controller):
             )
         return result
 
+    def _prepare_last_booking_session(self, booking_type, when_tz_aware):
+        return {
+            "name": booking_type.name,
+            "start": when_tz_aware.strftime("%B %d, %Y"),
+            "time": when_tz_aware.strftime("%H:%M"),
+            "duration": booking_type.duration,
+            "location": booking_type.location or "",
+        }
+
+    def _create_payment_sale_order(self, booking, partner, booking_type):
+        product = booking_type.payment_product_id
+        if not product:
+            raise ValidationError(
+                "This booking type requires a payment product before checkout can be used."
+            )
+        website = request.website
+        order = website.sale_get_order(force_create=True)
+        order = order.sudo()
+        order.write(
+            {
+                "partner_id": partner.id,
+                "partner_invoice_id": partner.id,
+                "partner_shipping_id": partner.id,
+                "website_id": website.id,
+                "order_line": [Command.clear()],
+            }
+        )
+        price_unit = booking_type.website_payment_price
+        request.env["sale.order.line"].sudo().create(
+            {
+                "order_id": order.id,
+                "product_id": product.id,
+                "product_uom_qty": 1.0,
+                "product_uom": product.uom_id.id,
+                "price_unit": price_unit,
+                "name": (
+                    product.get_product_multiline_description_sale()
+                    or product.display_name
+                ),
+            }
+        )
+        expiry_hours = booking_type.payment_hold_expiry_hours or 1.0
+        booking.write(
+            {
+                "website_payment_required": True,
+                "website_payment_sale_order_id": order.id,
+                "website_payment_expires_at": fields.Datetime.to_string(
+                    fields.Datetime.now() + timedelta(hours=expiry_hours)
+                ),
+            }
+        )
+        request.session["sale_order_id"] = order.id
+        request.session["last_booking"] = self._prepare_last_booking_session(
+            booking_type, booking.start
+        )
+        return order
+
     @http.route(
         [
             "/book/<slug>",
@@ -203,6 +289,7 @@ class WebsiteAppointmentBooking(http.Controller):
         values = {
             "booking_type": booking_type,
             "combination_options": self._get_combination_options(booking_type),
+            "contact_prefill": self._get_booking_contact_prefill(),
             "slot_data": slot_payload["slot_data"],
             "slot_data_json": slot_payload["slot_data_json"],
             "selected_tz": slot_payload["selected_tz"],
@@ -323,7 +410,8 @@ class WebsiteAppointmentBooking(http.Controller):
                     }
                 )
                 booking.start = when_naive
-                booking.action_confirm()
+                if not booking_type.require_upfront_payment:
+                    booking.action_confirm()
         except ValidationError:
             # Race condition: slot was taken between page load and submit
             month_str = f"{when_tz_aware:%Y/%m}"
@@ -331,14 +419,20 @@ class WebsiteAppointmentBooking(http.Controller):
                 f"/book/{slug}/{month_str}"
                 f"{self._build_selection_query(selected_tz, selected_combination, error='That slot is no longer available. Please choose another.')}"
             )
-        # Store booking info in session for the success page
-        request.session["last_booking"] = {
-            "name": booking_type.name,
-            "start": when_tz_aware.strftime("%B %d, %Y"),
-            "time": when_tz_aware.strftime("%H:%M"),
-            "duration": booking_type.duration,
-            "location": booking_type.location or "",
-        }
+        # Store booking info in session for success, or hand off to checkout.
+        request.session["last_booking"] = self._prepare_last_booking_session(
+            booking_type, when_tz_aware
+        )
+        if booking_type.require_upfront_payment:
+            try:
+                self._create_payment_sale_order(booking, partner, booking_type)
+            except ValidationError as error:
+                booking.action_cancel()
+                query = self._build_selection_query(
+                    selected_tz, selected_combination, error=str(error)
+                )
+                return request.redirect(f"/book/{slug}{query}")
+            return request.redirect("/shop/checkout")
         return request.redirect(f"/book/{slug}/success")
 
     @http.route(

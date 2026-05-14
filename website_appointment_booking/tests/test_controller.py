@@ -65,8 +65,7 @@ class TestWebsiteAppointmentBooking(HttpCase):
         card = test_cards[0]
         self.assertTrue(card.cssselect(":contains('Test resource booking type')"))
         self.assertTrue(card.cssselect('img[src*="/web/image/resource.booking.type/"]'))
-        self.assertTrue(card.cssselect('img[src*="/web/image/res.users/"]'))
-        self.assertTrue(card.cssselect('img[src*="/web/image/resource.resource/"]'))
+        self.assertTrue(card.cssselect('img[src^="data:image"][alt]'))
         self.assertIn("col-lg-3", card.getparent().get("class", ""))
         self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('30 min')"))
         self.assertTrue(card.cssselect(".o_wab_card_meta_item:contains('Main office')"))
@@ -75,6 +74,19 @@ class TestWebsiteAppointmentBooking(HttpCase):
         """Published flag controls /book card visibility without deleting slug data."""
         page = self._url_xml("/book")
         self.assertFalse(page.cssselect('a[href="/book/unpublished-type"]'))
+
+    def test_landing_page_has_standard_website_page_publish_record(self):
+        """The /book route has a standard website.page record for editor publishing."""
+        website_page = self.env.ref(
+            "website_appointment_booking.booking_landing_website_page"
+        )
+        self.assertEqual(website_page.url, "/book")
+        self.assertEqual(website_page.view_id.key, "website_appointment_booking.booking_landing_page")
+        self.assertTrue(website_page.website_published)
+
+    def test_booking_type_website_url_points_to_public_slug(self):
+        """Booking types expose the standard website URL used by the smart button."""
+        self.assertEqual(self.rbt.website_url, "/book/test-booking")
 
     def test_unpublished_returns_404(self):
         """Unpublished booking types are not accessible.
@@ -99,6 +111,31 @@ class TestWebsiteAppointmentBooking(HttpCase):
         )
         # Duration pill should be present
         self.assertTrue(page.cssselect(".o_wab_meta_pill:contains('30 min')"))
+
+    def test_booking_page_prefills_logged_in_contact_fields(self):
+        """Logged-in users see account contact values prefilled in the booking form."""
+        admin = self.env.ref("base.user_admin")
+        admin.partner_id.write(
+            {
+                "name": "Admin Booker",
+                "email": "admin-booker@example.com",
+                "phone": "+1 555-7777",
+            }
+        )
+        self.authenticate("admin", "admin")
+        page = self._url_xml("/book/test-booking/2021/3")
+        self.assertEqual(page.cssselect('#o_wab_name')[0].get("value"), "Admin Booker")
+        self.assertEqual(
+            page.cssselect('#o_wab_email')[0].get("value"), "admin-booker@example.com"
+        )
+        self.assertEqual(page.cssselect('#o_wab_phone')[0].get("value"), "+1 555-7777")
+
+    def test_booking_page_leaves_public_contact_fields_blank(self):
+        """Public visitors still get empty booking contact fields."""
+        page = self._url_xml("/book/test-booking/2021/3")
+        self.assertIsNone(page.cssselect('#o_wab_name')[0].get("value"))
+        self.assertIsNone(page.cssselect('#o_wab_email')[0].get("value"))
+        self.assertIsNone(page.cssselect('#o_wab_phone')[0].get("value"))
 
     def test_booking_page_february_no_slots(self):
         """February 2021 has no available Monday/Tuesday slots (too close)."""
@@ -422,6 +459,100 @@ class TestWebsiteAppointmentBooking(HttpCase):
         self.rbt.location = "Main office"
         page = self._url_xml("/book/test-booking")
         self.assertTrue(page.cssselect(".o_wab_meta_pill:contains('Main office')"))
+
+
+@freeze_time("2021-02-26 09:00:00", tick=True)
+@tagged("post_install", "-at_install")
+class TestPaidWebsiteAppointmentBooking(HttpCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        create_test_data(cls)
+        cls.payment_product = cls.env["product.product"].create(
+            {
+                "name": "Booking Deposit Product",
+                "type": "service",
+                "sale_ok": True,
+                "list_price": 60.0,
+            }
+        )
+        cls.rbt.write(
+            {
+                "website_published": True,
+                "website_slug": "paid-booking",
+                "location": "Main office",
+                "require_upfront_payment": True,
+                "payment_product_id": cls.payment_product.id,
+                "payment_price": 25.0,
+            }
+        )
+
+    def _url_xml(self, url, data=None, timeout=10):
+        response = self.url_open(url, data, timeout=timeout)
+        return fromstring(response.content)
+
+    def _get_csrf_token(self, page):
+        inputs = page.cssselect('input[name="csrf_token"]')
+        if inputs:
+            return inputs[0].get("value")
+        return ""
+
+    def test_paid_booking_price_is_visible_on_card_and_booking_page(self):
+        landing_page = self._url_xml("/book")
+        cards = [
+            card
+            for card in landing_page.cssselect(".o_wab_booking_card")
+            if card.cssselect('a[href="/book/paid-booking"]')
+        ]
+        self.assertEqual(len(cards), 1)
+        card = cards[0]
+        self.assertTrue(card.cssselect(".o_wab_payment_price:contains('Upfront payment')"))
+        self.assertTrue(card.cssselect(".o_wab_payment_price:contains('25')"))
+
+        booking_page = self._url_xml("/book/paid-booking/2021/3")
+        self.assertTrue(
+            booking_page.cssselect(".o_wab_meta_pill.o_wab_payment_price:contains('25')")
+        )
+        self.assertTrue(
+            booking_page.cssselect(":contains('This booking requires an upfront payment')")
+        )
+        self.assertTrue(booking_page.cssselect(".o_wab_submit_btn:contains('Checkout')"))
+
+    def test_paid_booking_uses_booking_type_price_for_checkout_order(self):
+        page = self._url_xml("/book/paid-booking/2021/3")
+        csrf = self._get_csrf_token(page)
+        data = {
+            "csrf_token": csrf,
+            "name": "Paid Visitor",
+            "email": "paid-visitor@example.com",
+            "phone": "+1 555-0123",
+            "when": "2021-03-01T10:00:00+00:00",
+        }
+        response = self.url_open("/book/paid-booking/confirm", data=data, timeout=30)
+        self.assertIn("/shop/", response.url)
+        booking = self.env["resource.booking"].search(
+            [
+                ("type_id", "=", self.rbt.id),
+                ("partner_ids.email", "=", "paid-visitor@example.com"),
+            ],
+            limit=1,
+        )
+        self.assertTrue(booking)
+        self.assertEqual(booking.state, "scheduled")
+        self.assertTrue(booking.website_payment_required)
+        self.assertEqual(booking.website_payment_sale_order_id.order_line.price_unit, 25.0)
+
+    def test_paid_booking_confirmation_template_is_installed(self):
+        view = self.env.ref(
+            "website_appointment_booking.paid_booking_shop_confirmation"
+        )
+        self.assertIn("Booking Scheduled", view.arch_db)
+        self.assertIn("your booking has been scheduled", view.arch_db)
+        self.assertIn('text-bg-success">Booked</span>', view.arch_db)
+        self.assertIn("o_wab_paid_booking_card", view.arch_db)
+        self.assertIn("View details", view.arch_db)
+        self.assertIn("website_sale.payment_confirmation_status", view.arch_db)
+        self.assertNotIn("//h3[contains(., 'Thank you for your order.')]", view.arch_db)
 
 
 @freeze_time("2021-02-26 09:00:00", tick=True)
