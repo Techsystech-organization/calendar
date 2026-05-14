@@ -396,6 +396,40 @@ class TestWebsiteAppointmentBooking(HttpCase):
         response = self.url_open("/book/test-booking/confirm", data=data)
         self.assertIn("error=", response.url)
 
+    def test_confirm_honeypot_rejects_bot(self):
+        """Submissions with the honeypot field filled are rejected."""
+        page = self._url_xml("/book/test-booking/2021/3")
+        csrf = self._get_csrf_token(page)
+        data = {
+            "csrf_token": csrf,
+            "name": "Bot User",
+            "email": "bot@example.com",
+            "phone": "+1 555-9999",
+            "when": "2021-03-01T10:00:00+00:00",
+            "website": "spam-domain.com",
+        }
+        response = self.url_open("/book/test-booking/confirm", data=data)
+        self.assertIn("error=", response.url)
+
+    def test_confirm_rate_limit_blocks_rapid_submissions(self):
+        """Two submissions within 5 seconds are rate-limited."""
+        page = self._url_xml("/book/test-booking/2021/3")
+        csrf = self._get_csrf_token(page)
+        data = {
+            "csrf_token": csrf,
+            "name": "Fast User",
+            "email": "fast@example.com",
+            "phone": "+1 555-8888",
+            "when": "2021-03-01T10:00:00+00:00",
+        }
+        # First submission succeeds
+        response1 = self.url_open("/book/test-booking/confirm", data=data, timeout=30)
+        self.assertIn("/book/test-booking/success", response1.url)
+        # Immediate second submission is blocked
+        data["email"] = "fast2@example.com"
+        response2 = self.url_open("/book/test-booking/confirm", data=data)
+        self.assertIn("error=", response2.url)
+
     def test_success_page_renders(self):
         """Success page renders properly."""
         page = self._url_xml("/book/test-booking/success")

@@ -2,6 +2,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -334,6 +335,39 @@ class WebsiteAppointmentBooking(http.Controller):
             }
         )
 
+    def _check_rate_limit(self):
+        """Anti-spam: reject if honeypot filled or rate limit exceeded.
+
+        Returns (ok, redirect_url) tuple. ok=True means proceed.
+        """
+        # Honeypot check — bots fill invisible fields
+        if request.httprequest.form.get("website"):
+            return False, None
+
+        now = time.time()
+        session = request.session
+        last_submit = session.get("wab_last_submit", 0)
+        submit_count = session.get("wab_submit_count", 0)
+        submit_hour = session.get("wab_submit_hour", 0)
+        current_hour = int(now // 3600)
+
+        if current_hour != submit_hour:
+            session["wab_submit_hour"] = current_hour
+            session["wab_submit_count"] = 0
+            submit_count = 0
+
+        # Minimum 5 seconds between submissions
+        if now - last_submit < 5:
+            return False, "Please wait a moment before submitting again."
+
+        # Max 10 submissions per hour per session
+        if submit_count >= 10:
+            return False, "Too many booking attempts. Please try again later."
+
+        session["wab_last_submit"] = now
+        session["wab_submit_count"] = submit_count + 1
+        return True, None
+
     @http.route(
         "/book/<slug>/confirm",
         auth="public",
@@ -353,6 +387,17 @@ class WebsiteAppointmentBooking(http.Controller):
         booking_type = self._get_booking_type(slug)
         if not booking_type:
             raise NotFound()
+
+        ok, error_msg = self._check_rate_limit()
+        if not ok:
+            selected_tz = self._get_selected_tz(booking_type, kwargs.get("tz"))
+            selected_combination = self._get_selected_combination(
+                booking_type, kwargs.get("combination_id")
+            )
+            return request.redirect(
+                f"/book/{slug}{self._build_selection_query(selected_tz, selected_combination, error=error_msg or 'Unable to process request.')}"
+            )
+
         selected_tz = self._get_selected_tz(booking_type, kwargs.get("tz"))
         selected_combination = self._get_selected_combination(
             booking_type, kwargs.get("combination_id")

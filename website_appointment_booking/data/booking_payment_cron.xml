@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<odoo>
+<odoo noupdate="1">
     <record id="ir_cron_cleanup_expired_website_payment_bookings" model="ir.cron">
         <field name="name">Cleanup expired website booking payment holds</field>
         <field name="model_id" ref="resource_booking.model_resource_booking" />
