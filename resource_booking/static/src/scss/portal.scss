@@ -19,7 +19,7 @@ $rb-radius-sm: 0.5rem;
     .o_rb_portal_shell {
         border: 1px solid var(--o-gray-200, #e9ecef);
         border-radius: $rb-radius;
-        background: #fff;
+        background: var(--body-bg, #fff);
         overflow: hidden;
         box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.04);
     }
@@ -39,8 +39,8 @@ $rb-radius-sm: 0.5rem;
         background: linear-gradient(
             90deg,
             var(--o-gray-100, #f8f9fa) 0%,
-            rgba(248, 249, 250, 0.9) 42%,
-            rgba(248, 249, 250, 0.58) 100%
+            color-mix(in srgb, var(--o-gray-100, #f8f9fa) 90%, transparent) 42%,
+            color-mix(in srgb, var(--o-gray-100, #f8f9fa) 58%, transparent) 100%
         );
         pointer-events: none;
     }
@@ -99,7 +99,7 @@ $rb-radius-sm: 0.5rem;
     font-weight: 700;
 
     &.o_rb_status_confirmed {
-        background: rgba(255, 255, 255, 0.88);
+        background: color-mix(in srgb, var(--body-bg, #fff) 88%, transparent);
         color: var(--bs-success, #198754);
     }
 
