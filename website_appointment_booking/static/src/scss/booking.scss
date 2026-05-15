@@ -80,7 +80,7 @@ $wab-radius-sm: 0.5rem;
     border: none;
     border-radius: $wab-radius;
     background: var(--o-gray-100, #f8f9fa);
-    border-left: 4px solid var(--o-brand-primary, #714b67);
+    border-left: 4px solid var(--o-color-1, #714b67);
 
     .o_wab_title {
         font-weight: 700;
@@ -219,7 +219,7 @@ $wab-radius-sm: 0.5rem;
             transform: translateX(-50%);
             width: 4px;
             height: 4px;
-            background: var(--o-brand-primary, #714b67);
+            background: var(--o-color-1, #714b67);
             border-radius: 50%;
         }
 
@@ -230,7 +230,7 @@ $wab-radius-sm: 0.5rem;
 
     // Selected day
     .o_wab_day_selected {
-        background: var(--o-brand-primary, #714b67) !important;
+        background: var(--o-color-1, #714b67) !important;
         color: #fff !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
@@ -285,8 +285,8 @@ $wab-radius-sm: 0.5rem;
     }
 
     &.active {
-        background: var(--o-brand-primary, #714b67);
-        border-color: var(--o-brand-primary, #714b67);
+        background: var(--o-color-1, #714b67);
+        border-color: var(--o-color-1, #714b67);
         color: #fff;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     }
