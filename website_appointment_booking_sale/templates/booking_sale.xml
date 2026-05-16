@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2025 Ledo Enterprises LLC - Don Kendall
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <!-- Payment price on landing page card -->
+    <template
+        id="booking_landing_page"
+        inherit_id="website_appointment_booking.booking_landing_page"
+    >
+        <xpath expr="//span[hasclass('o_wab_card_meta_item')][i[hasclass('fa-map-marker')]]" position="after">
+            <span
+                t-if="booking_type.require_upfront_payment"
+                class="o_wab_card_meta_item o_wab_payment_price"
+            >
+                <i class="fa fa-credit-card" />
+                <span>Upfront payment:</span>
+                <strong
+                    t-out="booking_type.website_payment_price"
+                    t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                />
+            </span>
+        </xpath>
+    </template>
+
+    <!-- Payment price on booking page header -->
+    <template
+        id="booking_page"
+        inherit_id="website_appointment_booking.booking_page"
+    >
+        <xpath expr="//span[hasclass('o_wab_meta_pill')][i[hasclass('fa-map-marker')]]" position="after">
+            <span
+                t-if="booking_type.require_upfront_payment"
+                class="o_wab_meta_pill o_wab_payment_price"
+            >
+                <i class="fa fa-credit-card" />
+                <span>Upfront payment:</span>
+                <strong
+                    t-out="booking_type.website_payment_price"
+                    t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                />
+            </span>
+        </xpath>
+    </template>
+
+    <!-- Payment alert and checkout button in booking form -->
+    <template
+        id="booking_page_form"
+        inherit_id="website_appointment_booking.booking_page"
+    >
+        <xpath expr="//button[hasclass('o_wab_submit_btn')]" position="replace">
+            <t t-if="booking_type.require_upfront_payment">
+                <div class="alert alert-info d-flex align-items-center gap-2" role="status">
+                    <i class="fa fa-credit-card" />
+                    <span>
+                        This booking requires an upfront payment of
+                        <strong
+                            t-out="booking_type.website_payment_price"
+                            t-options="{'widget': 'monetary', 'display_currency': booking_type.currency_id}"
+                        />
+                        to schedule your appointment.
+                    </span>
+                </div>
+            </t>
+            <button
+                type="submit"
+                class="btn btn-primary o_wab_submit_btn"
+            >
+                <i class="fa fa-check me-1" />
+                <t t-if="booking_type.require_upfront_payment">Continue to Checkout</t>
+                <t t-else="">Confirm Booking</t>
+            </button>
+        </xpath>
+    </template>
+
+    <!-- Paid booking confirmation on shop checkout page -->
+    <template id="paid_booking_shop_confirmation" inherit_id="website_sale.confirmation">
+        <xpath expr="//t[@t-call='website_sale.payment_confirmation_status']/following-sibling::div[contains(@class, 'card')][1]" position="after">
+            <section
+                t-if="order.website_booking_ids"
+                class="card mt-3 o_wab_paid_booking_confirmation"
+                role="status"
+            >
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <h4 class="h5 mb-0">
+                            <i class="fa fa-calendar-check-o me-1 text-success" />
+                            Booking Scheduled
+                        </h4>
+                    </div>
+                    <p class="text-muted mb-3">
+                        Your payment is complete and your booking has been scheduled.
+                    </p>
+                    <div class="vstack gap-3">
+                        <article
+                            t-foreach="order.website_booking_ids"
+                            t-as="booking"
+                            class="o_wab_paid_booking_card border rounded overflow-hidden"
+                        >
+                            <div class="row g-0">
+                                <div class="col-md-3 bg-light d-flex align-items-center justify-content-center">
+                                    <img
+                                        t-if="booking.type_id.website_card_image"
+                                        t-att-src="'/web/image/resource.booking.type/%s/website_card_image?width=400&amp;height=400' % booking.type_id.id"
+                                        t-att-alt="booking.type_id.name"
+                                        class="img-fluid h-100 w-100 o_wab_paid_booking_img"
+                                    />
+                                    <i
+                                        t-else=""
+                                        class="fa fa-calendar-check-o fa-3x text-muted py-4"
+                                        aria-hidden="true"
+                                    />
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="p-3">
+                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                            <h5 class="mb-1" t-out="booking.type_id.name" />
+                                            <span class="badge text-bg-success flex-shrink-0">Booked</span>
+                                        </div>
+                                        <div class="text-muted small d-flex flex-wrap gap-3 mb-2">
+                                            <span t-if="booking.start">
+                                                <i class="fa fa-clock-o me-1" />
+                                                <span t-field="booking.start" />
+                                            </span>
+                                            <span t-if="booking.duration">
+                                                <i class="fa fa-hourglass-half me-1" />
+                                                <t t-out="'%d min' % int(booking.duration * 60)" />
+                                            </span>
+                                            <span t-if="booking.type_id.location">
+                                                <i class="fa fa-map-marker me-1" />
+                                                <t t-out="booking.type_id.location" />
+                                            </span>
+                                        </div>
+                                        <div
+                                            t-if="booking.type_id.website_description"
+                                            class="small text-muted mb-3"
+                                            t-field="booking.type_id.website_description"
+                                        />
+                                        <a
+                                            t-att-href="booking.get_portal_url()"
+                                            class="btn btn-outline-primary btn-sm"
+                                        >View details</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </xpath>
+    </template>
+</odoo>

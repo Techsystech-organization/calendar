@@ -2,9 +2,9 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 {
-    "name": "Website Appointment Booking",
-    "summary": "Public appointment booking pages for resource booking types",
-    "version": "18.0.1.1.0",
+    "name": "Website Appointment Booking Sale",
+    "summary": "Paid booking checkout flow for website appointment booking",
+    "version": "18.0.1.0.0",
     "development_status": "Beta",
     "category": "Appointments",
     "website": "https://github.com/OCA/calendar",
@@ -13,18 +13,19 @@
     "license": "AGPL-3",
     "installable": True,
     "depends": [
-        "resource_booking",
-        "website",
+        "website_appointment_booking",
+        "sale",
+        "website_sale",
     ],
     "data": [
         "security/ir.model.access.csv",
-        "templates/booking.xml",
+        "data/booking_payment_cron.xml",
+        "templates/booking_sale.xml",
         "views/resource_booking_type_views.xml",
     ],
     "assets": {
         "web.assets_frontend": [
-            "website_appointment_booking/static/src/scss/booking.scss",
-            "website_appointment_booking/static/src/js/booking_page.esm.js",
+            # Sale-specific frontend assets go here
         ],
     },
 }
