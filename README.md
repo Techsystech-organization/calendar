@@ -1,4 +1,7 @@
 
+[![Support the OCA](https://odoo-community.org/readme-banner-image)](https://odoo-community.org/get-involved?utm_source=repo-readme)
+
+# calendar
 [![Runboat](https://img.shields.io/badge/runboat-Try%20me-875A7B.png)](https://runboat.odoo-community.org/builds?repo=OCA/calendar&target_branch=18.0)
 [![Pre-commit Status](https://github.com/OCA/calendar/actions/workflows/pre-commit.yml/badge.svg?branch=18.0)](https://github.com/OCA/calendar/actions/workflows/pre-commit.yml?query=branch%3A18.0)
 [![Build Status](https://github.com/OCA/calendar/actions/workflows/test.yml/badge.svg?branch=18.0)](https://github.com/OCA/calendar/actions/workflows/test.yml?query=branch%3A18.0)
@@ -6,8 +9,6 @@
 [![Translation Status](https://translation.odoo-community.org/widgets/calendar-18-0/-/svg-badge.svg)](https://translation.odoo-community.org/engage/calendar-18-0/?utm_source=widget)
 
 <!-- /!\ do not modify above this line -->
-
-# calendar
 
 calendar
 
@@ -25,7 +26,7 @@ addon | version | maintainers | summary
 [calendar_export_ics](calendar_export_ics/) | 18.0.1.0.1 |  | Allow exporting odoo calendar to an ics file
 [calendar_import_ics](calendar_import_ics/) | 18.0.1.0.1 |  | Allow importing an ics file to our calendar
 [calendar_public_holiday](calendar_public_holiday/) | 18.0.1.0.1 |  | Manage Public Holidays
-[resource_booking](resource_booking/) | 18.0.1.0.10 | <a href='https://github.com/pedrobaeza'><img src='https://github.com/pedrobaeza.png' width='32' height='32' style='border-radius:50%;' alt='pedrobaeza'/></a> <a href='https://github.com/ows-cloud'><img src='https://github.com/ows-cloud.png' width='32' height='32' style='border-radius:50%;' alt='ows-cloud'/></a> | Manage appointments and resource booking
+[resource_booking](resource_booking/) | 18.0.1.0.11 | <a href='https://github.com/pedrobaeza'><img src='https://github.com/pedrobaeza.png' width='32' height='32' style='border-radius:50%;' alt='pedrobaeza'/></a> <a href='https://github.com/ows-cloud'><img src='https://github.com/ows-cloud.png' width='32' height='32' style='border-radius:50%;' alt='ows-cloud'/></a> | Manage appointments and resource booking
 
 [//]: # (end addons)
 
