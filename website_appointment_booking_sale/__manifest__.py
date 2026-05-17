@@ -18,7 +18,6 @@
         "website_sale",
     ],
     "data": [
-        "security/ir.model.access.csv",
         "data/booking_payment_cron.xml",
         "templates/booking_sale.xml",
         "views/resource_booking_type_views.xml",
