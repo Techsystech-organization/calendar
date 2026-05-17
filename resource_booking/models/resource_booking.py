@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 from odoo.addons.resource.models.utils import Intervals
@@ -78,27 +78,18 @@ class ResourceBooking(models.Model):
 
     def _get_portal_timezone_label(self):
         self.ensure_one()
-        timezone_labels = {
-            "America/Chicago": "central time",
-            "US/Central": "central time",
-            "America/New_York": "eastern time",
-            "US/Eastern": "eastern time",
-            "America/Denver": "mountain time",
-            "US/Mountain": "mountain time",
-            "America/Phoenix": "mountain time",
-            "America/Los_Angeles": "pacific time",
-            "US/Pacific": "pacific time",
-        }
         tz_name = self._get_portal_timezone()
-        return timezone_labels.get(tz_name, tz_name.replace("_", " ").lower())
+        return tz_name.replace("_", " ")
 
     def _get_portal_start_display(self):
         self.ensure_one()
         if not self.start:
             return ""
         start = fields.Datetime.context_timestamp(self, self.start)
-        time_display = start.strftime("%I:%M %p").lstrip("0")
-        return f"{start.month}/{start.day}/{start.year % 100} {time_display}"
+        lang = self.env["res.lang"]._lang_get(self.env.lang or "en_US")
+        date_fmt = lang.date_format or "%m/%d/%Y"
+        time_fmt = (lang.time_format or "%H:%M:%S").replace(":%S", "")
+        return start.strftime(f"{date_fmt} {time_fmt}")
 
     def _get_portal_duration_display(self):
         self.ensure_one()
@@ -106,31 +97,12 @@ class ResourceBooking(models.Model):
             return ""
         minutes = int(self.duration * 60)
         if minutes < 60:
-            return f"{minutes} min"
+            return _("%d min", minutes)
         hours = minutes // 60
         mins = minutes % 60
         if mins == 0:
-            return f"{hours} hr"
-        return f"{hours} hr {mins} min"
-
-    def _get_portal_timezone_label(self):
-        self.ensure_one()
-        if not self.start:
-            return ""
-        start = fields.Datetime.context_timestamp(self, self.start)
-        tz_name = start.tzinfo.zone if hasattr(start.tzinfo, "zone") else str(start.tzinfo)
-        timezone_labels = {
-            "America/Chicago": "central time",
-            "US/Central": "central time",
-            "America/New_York": "eastern time",
-            "US/Eastern": "eastern time",
-            "America/Denver": "mountain time",
-            "US/Mountain": "mountain time",
-            "America/Phoenix": "mountain time",
-            "America/Los_Angeles": "pacific time",
-            "US/Pacific": "pacific time",
-        }
-        return timezone_labels.get(tz_name, tz_name.replace("_", " ").lower())
+            return _("%d hr", hours)
+        return _("%d hr %d min", hours, mins)
 
     active = fields.Boolean(default=True)
     meeting_id = fields.Many2one(
