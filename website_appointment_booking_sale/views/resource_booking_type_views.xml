@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2025 Ledo Enterprises LLC - Don Kendall
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <record id="resource_booking_type_view_form_inherit_sale" model="ir.ui.view">
+        <field name="name">resource.booking.type.form.sale</field>
+        <field name="model">resource.booking.type</field>
+        <field
+            name="inherit_id"
+            ref="resource_booking.resource_booking_type_view_form"
+        />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='website_slug']" position="after">
+                <field name="require_upfront_payment" invisible="not website_published" />
+                <field
+                    name="payment_product_id"
+                    invisible="not require_upfront_payment"
+                    required="require_upfront_payment"
+                />
+                <field
+                    name="payment_price"
+                    invisible="not require_upfront_payment"
+                />
+                <field
+                    name="payment_hold_expiry_hours"
+                    invisible="not require_upfront_payment"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>
