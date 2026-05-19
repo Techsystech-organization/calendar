@@ -662,29 +662,36 @@ class BackendCaseMisc(BackendCaseBase):
         rb_f.start = datetime(2021, 3, 1, 9)
         self.assertTrue(rb_f.combination_id)
 
-    def test_allday_event_blocks_whole_day(self):
-        """All-day events block the whole local day on 24h calendars."""
-        self.rbt.resource_calendar_id = self.r_calendars[3]
+    def test_allday_event_blocks_booking_slot(self):
+        """All-day calendar events block booking slots that overlap their day.
+
+        Without all-day handling, the date-only event is invisible to the
+        scheduling search (which queries on start/stop datetimes), so the
+        booking is incorrectly accepted.
+        """
+        user = self.users[0]
         self.env["calendar.event"].create(
             {
-                "name": "all day saturday",
-                "start": datetime(2021, 2, 27, 0),
-                "start_date": date(2021, 2, 27),
-                "stop": datetime(2021, 2, 27, 0),
-                "stop_date": date(2021, 2, 27),
+                "name": "PTO",
                 "allday": True,
-                "partner_ids": [Command.set(self.users.partner_id.ids)],
+                "start_date": "2021-03-01",
+                "stop_date": "2021-03-01",
+                "user_id": user.id,
+                "partner_ids": [Command.set([user.partner_id.id])],
             }
         )
         rb_f = Form(self.env["resource.booking"])
         rb_f.partner_ids.add(self.partner)
         rb_f.type_id = self.rbt
-        rb_f.start = datetime(2021, 2, 27, 1)
-        self.assertFalse(rb_f.combination_id)
-        rb_f.start = datetime(2021, 2, 27, 19)
-        self.assertFalse(rb_f.combination_id)
-        rb_f.start = datetime(2021, 2, 28, 1)
-        self.assertTrue(rb_f.combination_id)
+        # Force the user-resource combination so the all-day event has to block it
+        rb_f.combination_auto_assign = False
+        rb_f.combination_id = self.rbcs[0]
+        rb_f.start = datetime(2021, 3, 1, 9)
+        with self.assertRaises(ValidationError):
+            rb_f.save()
+        # Following Monday is fine
+        rb_f.start = datetime(2021, 3, 8, 9)
+        rb_f.save()
 
     @mute_logger("odoo.models.unlink")
     def test_change_calendar_after_bookings_exist(self):

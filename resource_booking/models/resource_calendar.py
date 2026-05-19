@@ -72,7 +72,9 @@ class ResourceCalendar(models.Model):
             return Intervals(intervals)
         # Simple domain to get all possibly conflicting events in a single
         # query; this reduces DB calls and helps the underlying recurring
-        # system (in calendar.event) to work smoothly
+        # system (in calendar.event) to work smoothly. All-day events are
+        # stored without start/stop timestamps in some flows, so OR in a
+        # date-based predicate to catch them too.
         domain = expression.OR(
             [
                 [("start", "<=", end_dt), ("stop", ">=", start_dt)],
@@ -114,12 +116,14 @@ class ResourceCalendar(models.Model):
                         ):
                             raise Busy
             except Busy:
-                # Add the matched event as a busy interval
+                # Add the matched event as a busy interval. All-day events
+                # have no start/stop timestamps in some flows, so derive the
+                # interval from start_date/stop_date in the analyzer's tz.
                 if event.allday and event.start_date and event.stop_date:
-                    event_start = _localize_interval(
+                    event_start = interval_tz.localize(
                         datetime.combine(event.start_date, time.min)
                     )
-                    event_stop = _localize_interval(
+                    event_stop = interval_tz.localize(
                         datetime.combine(event.stop_date + timedelta(days=1), time.min)
                     )
                 else:
