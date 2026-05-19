@@ -352,7 +352,6 @@ class ResourceBooking(models.Model):
     @api.depends("active", "meeting_id.attendee_ids.state")
     def _compute_state(self):
         """Obtain request state."""
-        to_check = self.browse()
         for one in self:
             if not one.active:
                 one.state = "canceled"
@@ -364,10 +363,8 @@ class ResourceBooking(models.Model):
                     break
             if confirmed:
                 one.state = "confirmed"
-                to_check |= one
                 continue
             one.state = "scheduled" if one.meeting_id else "pending"
-        to_check._check_scheduling()
 
     @api.depends("meeting_id.start")
     def _compute_start(self):
@@ -504,7 +501,8 @@ class ResourceBooking(models.Model):
             start_dt = fields.Datetime.context_timestamp(self, booking["start"])
             end_dt = fields.Datetime.context_timestamp(self, booking["stop"])
             available_intervals = booking._get_intervals(start_dt, end_dt)
-            if _availability_is_fitting(available_intervals, start_dt, end_dt):
+            fitting = _availability_is_fitting(available_intervals, start_dt, end_dt)
+            if fitting:
                 unfitting_bookings -= booking
         # Explain which bookings failed validation
         if unfitting_bookings:

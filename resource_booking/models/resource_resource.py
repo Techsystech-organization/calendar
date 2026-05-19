@@ -1,6 +1,8 @@
 # Copyright 2021 Tecnativa - Jairo Llopis
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from datetime import timedelta
+
 from odoo import api, fields, models
 
 from .resource_booking import _availability_is_fitting
@@ -27,11 +29,20 @@ class ResourceResource(models.Model):
 
     @api.constrains("calendar_id", "resource_type", "tz", "user_id")
     def _check_bookings_scheduling(self):
-        """Scheduled bookings must have no conflicts."""
+        """Scheduled bookings must have no conflicts.
+
+        Only check modifiable future bookings. Confirmed and past bookings
+        are grandfathered to avoid blocking unrelated administrative changes.
+        """
+        now = fields.Datetime.now()
         bookings = (
             self.env["resource.booking"]
             .sudo()
-            .search([("combination_id.resource_ids", "in", self.ids)])
+            .search([
+                ("combination_id.resource_ids", "in", self.ids),
+                ("state", "!=", "confirmed"),
+                ("stop", ">=", now),
+            ])
         )
         return bookings._check_scheduling()
 
