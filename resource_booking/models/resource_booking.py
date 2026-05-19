@@ -596,7 +596,7 @@ class ResourceBooking(models.Model):
         booking_duration = timedelta(hours=self.duration)
         now = fields.Datetime.context_timestamp(self, fields.Datetime.now())
         start_dt = max(
-            start_dt, now + timedelta(hours=self.type_id.modifications_deadline)
+            start_dt, now + timedelta(hours=self.type_id.min_advance_booking_hours)
         )
         max_advance_days = self.type_id.max_advance_booking_days
         max_start_dt = False

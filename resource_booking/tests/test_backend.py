@@ -320,7 +320,7 @@ class BackendCaseMisc(BackendCaseBase):
         self.rbt.write(
             {
                 "max_advance_booking_days": 4,
-                "modifications_deadline": 0,
+                "min_advance_booking_hours": 0,
                 "resource_calendar_id": self.r_calendars[2].id,
                 "slot_duration": 0.5,
             }
@@ -342,7 +342,7 @@ class BackendCaseMisc(BackendCaseBase):
             {
                 "combination_assignment": "sorted",
                 "duration": 1.0,
-                "modifications_deadline": 0,
+                "min_advance_booking_hours": 0,
                 "resource_calendar_id": self.r_calendars[0].id,
                 "slot_duration": 0.25,
             }
@@ -366,7 +366,7 @@ class BackendCaseMisc(BackendCaseBase):
                     Command.create({"sequence": 0, "combination_id": shared_user_combination.id})
                 ],
                 "duration": 1.0,
-                "modifications_deadline": 0,
+                "min_advance_booking_hours": 0,
                 "resource_calendar_id": self.r_calendars[0].id,
                 "slot_duration": 0.25,
             }
@@ -1092,7 +1092,7 @@ class BackendCaseMisc(BackendCaseBase):
         self.rbt.write(
             {
                 "resource_calendar_id": calendar_meeting.id,
-                "modifications_deadline": 2,
+                "min_advance_booking_hours": 2,
             }
         )
         resource_booking = self.env["resource.booking"].create(
