@@ -21,14 +21,19 @@ class ResourceCalendar(models.Model):
 
     @api.constrains("attendance_ids", "global_leave_ids", "leave_ids", "tz")
     def _check_bookings_scheduling(self):
-        """Scheduled bookings must have no conflicts."""
+        """Scheduled bookings must have no conflicts.
+
+        Only check modifiable future bookings. Confirmed and past bookings
+        are grandfathered to avoid blocking unrelated administrative changes.
+        """
+        now = fields.Datetime.now()
         bookings = (
             self.env["resource.booking"]
             .sudo()
             .search(
                 [
-                    ("state", "=", "confirmed"),
-                    ("stop", ">=", fields.Datetime.now()),
+                    ("state", "!=", "confirmed"),
+                    ("stop", ">=", now),
                     "|",
                     ("combination_id.forced_calendar_id", "in", self.ids),
                     ("combination_id.resource_ids.calendar_id", "in", self.ids),

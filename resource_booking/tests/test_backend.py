@@ -337,6 +337,63 @@ class BackendCaseMisc(BackendCaseBase):
         )
         self.assertFalse(any(day > max_start.date() for day in slots))
 
+    def test_min_advance_booking_hours_and_modifications_deadline_are_independent(self):
+        """Minimum advance booking controls slot availability;
+        modification deadline controls overdue status. They must not be coupled."""
+        # Use FriSun calendar so today (frozen Friday) is a valid booking day
+        self.rbt.write(
+            {
+                "min_advance_booking_hours": 2,
+                "modifications_deadline": 24,
+                "resource_calendar_id": self.r_calendars[3].id,
+                "slot_duration": 0.5,
+            }
+        )
+        now = fields.Datetime.now()
+        # A slot 1 hour from now should be blocked by min_advance_booking_hours
+        booking = self.env["resource.booking"].new(
+            {"type_id": self.rbt.id, "duration": self.rbt.duration}
+        )
+        tz_now = fields.Datetime.context_timestamp(booking, now)
+        slots = booking._get_available_slots(tz_now, tz_now + timedelta(days=1))
+        self.assertTrue(slots, "Expected slots to be found today or tomorrow")
+        for day_slots in slots.values():
+            for slot in day_slots:
+                self.assertGreaterEqual(
+                    slot,
+                    tz_now + timedelta(hours=2),
+                    "Slots should respect min_advance_booking_hours",
+                )
+        # A booking 3 hours from now IS overdue (deadline is 24h before start)
+        future_start = now + timedelta(hours=3)
+        rb = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": future_start,
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[3].id,
+                "combination_auto_assign": False,
+            }
+        )
+        self.assertTrue(
+            rb.is_overdue,
+            "Booking should be overdue when start is within modifications_deadline",
+        )
+        # A booking 25 hours from now is NOT overdue (deadline is 24h before start)
+        rb2 = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": now + timedelta(hours=25),
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[3].id,
+                "combination_auto_assign": False,
+            }
+        )
+        self.assertFalse(
+            rb2.is_overdue,
+            "Booking should not be overdue when modifications_deadline is 24h and start is 25h away",
+        )
+
     def test_resource_buffer_blocks_shared_resource_following_slots(self):
         self.rbt.write(
             {
@@ -631,7 +688,9 @@ class BackendCaseMisc(BackendCaseBase):
 
     @mute_logger("odoo.models.unlink")
     def test_change_calendar_after_bookings_exist(self):
-        """Calendar changes can be done only if they introduce no conflicts."""
+        """Calendar changes are allowed even when confirmed bookings exist,
+        but new or rescheduled bookings must still respect the updated calendar.
+        """
         rbc_mon = self.rbcs[0]
         cal_mon = self.r_calendars[0]
         # There's a booking for last monday
@@ -653,27 +712,28 @@ class BackendCaseMisc(BackendCaseBase):
                 "partner_ids": [(4, self.partner.id)],
                 "start": "2021-03-01 08:00:00",
                 "type_id": self.rbt.id,
+                "combination_auto_assign": False,
             }
         )
         future_booking.action_confirm()
         self.assertEqual(future_booking.state, "confirmed")
-        # Now, it's impossible for me to change the resource calendar
-        with self.assertRaises(ValidationError), self.env.cr.savepoint():
-            with Form(cal_mon) as cal_mon_f:
-                with cal_mon_f.attendance_ids.edit(0) as att_mon_f:
-                    att_mon_f.hour_from = 9
-        # But let's unconfirm future boooking
-        future_booking.action_unschedule()
-        with Form(future_booking) as future_booking_f:
-            future_booking_f.start = "2021-03-01 08:00:00"
-        self.assertEqual(future_booking.state, "scheduled")
-        # Now I should be able to change the resource calendar
+        # Calendar can be changed even though a confirmed future booking exists
         with Form(cal_mon) as cal_mon_f:
             with cal_mon_f.attendance_ids.edit(0) as att_mon_f:
                 att_mon_f.hour_from = 9
-        # However, now I shouldn't be able to confirm future booking
+        # Unschedule future booking
+        future_booking.action_unschedule()
+        # Cannot reschedule to the old slot because calendar now starts at 9
         with self.assertRaises(ValidationError), self.env.cr.savepoint():
-            future_booking.action_confirm()
+            with Form(future_booking) as future_booking_f:
+                future_booking_f.start = "2021-03-01 08:00:00"
+        # Can reschedule to the new valid slot
+        with Form(future_booking) as future_booking_f:
+            future_booking_f.start = "2021-03-01 09:00:00"
+        self.assertEqual(future_booking.state, "scheduled")
+        # Confirming the rescheduled booking succeeds
+        future_booking.action_confirm()
+        self.assertEqual(future_booking.state, "confirmed")
 
     def test_free_slots_with_different_type_and_booking_durations(self):
         """Slot and booking duration are different, and all works."""
