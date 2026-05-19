@@ -737,13 +737,23 @@ msgstr ""
 
 #. module: resource_booking
 #: model:ir.model.fields,field_description:resource_booking.field_resource_booking_type__modifications_deadline
-msgid "Modifications Deadline"
+msgid "Modification Deadline (hours)"
+msgstr ""
+
+#. module: resource_booking
+#: model:ir.model.fields,field_description:resource_booking.field_resource_booking_type__min_advance_booking_hours
+msgid "Minimum Advance Booking (hours)"
 msgstr ""
 
 #. module: resource_booking
 #: model:ir.model.fields,field_description:resource_booking.field_resource_booking__my_activity_date_deadline
 #: model:ir.model.fields,field_description:resource_booking.field_resource_booking_type__my_activity_date_deadline
 msgid "My Activity Deadline"
+msgstr ""
+
+#. module: resource_booking
+#: model:ir.model.fields,field_description:resource_booking.field_resource_booking_type__max_advance_booking_days
+msgid "Maximum Advance Booking (days)"
 msgstr ""
 
 #. module: resource_booking
@@ -1230,9 +1240,24 @@ msgstr ""
 #. module: resource_booking
 #: model:ir.model.fields,help:resource_booking.field_resource_booking_type__modifications_deadline
 msgid ""
-"When this deadline has been exceeded, if a booking was not yet confirmed, it"
-" will be canceled automatically. Also, only booking managers will be able to"
-" unschedule or reschedule them. The value is expressed in hours."
+"Once a booking is within this many hours of its start time, non-managers can "
+"no longer cancel or reschedule it. Unconfirmed bookings past this deadline "
+"are automatically canceled. Set to 0 to allow modifications right up until "
+"the booking starts. The value is expressed in hours."
+msgstr ""
+
+#. module: resource_booking
+#: model:ir.model.fields,help:resource_booking.field_resource_booking_type__min_advance_booking_hours
+msgid ""
+"Users can only book slots that start at least this many hours from now. Set "
+"to 0 to allow same-day bookings."
+msgstr ""
+
+#. module: resource_booking
+#: model:ir.model.fields,help:resource_booking.field_resource_booking_type__max_advance_booking_days
+msgid ""
+"Users can only book up to this many days in advance. Set to 0 to allow the "
+"normal calendar range."
 msgstr ""
 
 #. module: resource_booking

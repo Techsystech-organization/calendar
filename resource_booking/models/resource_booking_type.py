@@ -65,11 +65,19 @@ class ResourceBookingType(models.Model):
         help=("Booking default duration."),
     )
     max_advance_booking_days = fields.Integer(
-        string="Maximum Advance Booking Days",
+        string="Maximum Advance Booking (days)",
         default=0,
         help=(
-            "Limit public/backend slot suggestions to starts within this many days "
-            "from now. Set to 0 to allow the normal calendar range."
+            "Users can only book up to this many days in advance. "
+            "Set to 0 to allow the normal calendar range."
+        ),
+    )
+    min_advance_booking_hours = fields.Float(
+        string="Minimum Advance Booking (hours)",
+        default=0,
+        help=(
+            "Users can only book slots that start at least this many hours "
+            "from now. Set to 0 to allow same-day bookings."
         ),
     )
     slot_duration = fields.Float(
@@ -80,12 +88,14 @@ class ResourceBookingType(models.Model):
     location = fields.Char()
     videocall_location = fields.Char(string="Meeting URL")
     modifications_deadline = fields.Float(
+        string="Modification Deadline (hours)",
         required=True,
         default=24,
         help=(
-            "When this deadline has been exceeded, if a booking was not yet "
-            "confirmed, it will be canceled automatically. Also, only booking "
-            "managers will be able to unschedule or reschedule them. "
+            "Once a booking is within this many hours of its start time, "
+            "non-managers can no longer cancel or reschedule it. "
+            "Unconfirmed bookings past this deadline are automatically canceled. "
+            "Set to 0 to allow modifications right up until the booking starts. "
             "The value is expressed in hours."
         ),
     )
