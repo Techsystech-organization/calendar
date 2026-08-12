@@ -316,6 +316,89 @@ class BackendCaseMisc(BackendCaseBase):
         self.assertTrue(booking.meeting_id)
         self.assertEqual(booking.state, "scheduled")
 
+    def test_meeting_description_combines_booking_description_and_requester_advice(self):
+        """Portal description should be combined with the type's default requester advice."""
+        self.rbt.requester_advice = "Please bring your ID."
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+                "description": "<p>I need help with taxes.</p>",
+            }
+        )
+        meeting_vals = booking._prepare_meeting_vals()
+        self.assertIn("I need help with taxes.", meeting_vals["description"])
+        self.assertIn("Please bring your ID.", meeting_vals["description"])
+
+    def test_meeting_description_fallback_to_booking_description(self):
+        """If no requester advice, the booking description alone should be used."""
+        self.rbt.requester_advice = False
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+                "description": "<p>Only this.</p>",
+            }
+        )
+        meeting_vals = booking._prepare_meeting_vals()
+        self.assertEqual(meeting_vals["description"], "<p>Only this.</p>")
+
+    def test_meeting_description_fallback_to_requester_advice(self):
+        """If no booking description, the requester advice alone should be used."""
+        self.rbt.requester_advice = "Default advice."
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+                "description": False,
+            }
+        )
+        meeting_vals = booking._prepare_meeting_vals()
+        self.assertEqual(meeting_vals["description"], "<p>Default advice.</p>")
+
+    def test_meeting_includes_type_default_tags(self):
+        """Default tags on the booking type must reach the calendar event."""
+        tag_a = self.env["calendar.event.type"].create({"name": "Type default tag"})
+        tag_b = self.env["calendar.event.type"].create({"name": "Booking tag"})
+        self.rbt.categ_ids = tag_a
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+                "categ_ids": [(4, tag_b.id)],
+            }
+        )
+        meeting_vals = booking._prepare_meeting_vals()
+        self.assertIn(tag_a.id, meeting_vals["categ_ids"][0][2])
+        self.assertIn(tag_b.id, meeting_vals["categ_ids"][0][2])
+
+    def test_meeting_includes_type_default_tags_when_booking_has_none(self):
+        """Default tags reach the event even when the booking was created without them."""
+        tag = self.env["calendar.event.type"].create({"name": "Type default tag"})
+        self.rbt.categ_ids = tag
+        booking = self.env["resource.booking"].create(
+            {
+                "partner_ids": [(4, self.partner.id)],
+                "start": "2021-03-01 08:00:00",
+                "type_id": self.rbt.id,
+                "combination_id": self.rbcs[0].id,
+                "combination_auto_assign": False,
+            }
+        )
+        self.assertIn(tag, booking.meeting_id.categ_ids)
+
     def test_available_slots_respect_max_advance_booking_days(self):
         self.rbt.write(
             {

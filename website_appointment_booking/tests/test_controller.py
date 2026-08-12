@@ -356,6 +356,33 @@ class TestWebsiteAppointmentBooking(HttpCase):
             "<p>Talk about payroll automation<br>and calendar reminders.</p>",
         )
 
+    def test_confirm_combines_discussion_with_requester_advice(self):
+        """Portal discussion and backend requester advice should both appear in the meeting."""
+        self.rbt.requester_advice = "Please arrive 10 minutes early."
+        page = self._url_xml("/book/test-booking/2021/3")
+        csrf = self._get_csrf_token(page)
+        data = {
+            "csrf_token": csrf,
+            "name": "Advice Visitor",
+            "email": "advice@example.com",
+            "phone": "+1 555-0107",
+            "discussion": "I want to discuss retirement planning.",
+            "when": "2021-03-01T10:00:00+00:00",
+        }
+        response = self.url_open("/book/test-booking/confirm", data=data, timeout=30)
+        self.assertIn("/book/test-booking/success", response.url)
+        booking = self.env["resource.booking"].search(
+            [
+                ("type_id", "=", self.rbt.id),
+                ("partner_ids.email", "=", "advice@example.com"),
+            ],
+            limit=1,
+        )
+        self.assertTrue(booking)
+        self.assertTrue(booking.meeting_id)
+        self.assertIn("retirement planning", booking.meeting_id.description)
+        self.assertIn("arrive 10 minutes early", booking.meeting_id.description)
+
     def test_confirm_missing_phone(self):
         """Submitting without a phone redirects with error."""
         page = self._url_xml("/book/test-booking/2021/3?tz=US/Pacific")
