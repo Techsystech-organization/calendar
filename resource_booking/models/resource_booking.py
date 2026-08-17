@@ -11,6 +11,7 @@ from pytz import timezone, utc
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools.mail import plaintext2html
 
 from odoo.addons.resource.models.utils import Intervals
 
@@ -411,7 +412,7 @@ class ResourceBooking(models.Model):
         ).mapped("user_id.partner_id")
         meeting_vals = dict(
             alarm_ids=[(6, 0, self.type_id.alarm_ids.ids)],
-            categ_ids=[(6, 0, self.categ_ids.ids)],
+            categ_ids=[(6, 0, (self.categ_ids | self.type_id.categ_ids).ids)],
             duration=self.duration,
             location=self.location,
             videocall_location=self.videocall_location,
@@ -429,8 +430,13 @@ class ResourceBooking(models.Model):
             res_model_id=False,
             res_id=False,
         )
+        description_parts = []
+        if self.description:
+            description_parts.append(self.description)
         if self.type_id.requester_advice:
-            meeting_vals["description"] = self.type_id.requester_advice
+            description_parts.append(plaintext2html(self.type_id.requester_advice))
+        if description_parts:
+            meeting_vals["description"] = "<br/><br/>".join(description_parts)
         return meeting_vals
 
     def _sync_meeting(self):
